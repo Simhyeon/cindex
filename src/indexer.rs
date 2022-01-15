@@ -1,89 +1,88 @@
-use std::{path::PathBuf, collections::HashMap};
+use std::{path::PathBuf, collections::HashMap, io::Read};
+use crate::models::{CSVType, CSVTable, Query};
 
 pub struct Indexer<'indexer> {
     read_option: ReadOption,
-    tables: HashMap<&'indexer str,CSVTable<'indexer>>,
-}
-
-pub struct IndexerQuery<'query> {
-    target_table: &'query str,
-    predicates: Option<Vec<Predicate<'query>>>,
-    joined_tables: Option<Vec<&'query str>>,
-}
-
-pub struct Predicate<'predicate> {
-    column: &'predicate str,
-    operation: Operation,
-    argument: Vec<String>,
-}
-
-impl<'predicate> Predicate<'predicate> {
-    pub fn new(column: &'predicate str, operation: Operation, argument: Vec<String>) -> Self {
-        Self {
-            column,
-            operation,
-            argument,
-        }
-    }
-}
-
-pub enum Operation {
-    Bigger,
-    BiggerOrEqual,
-    Smaller,
-    SmallerOrEqual,
-    Equal,
-    NotEqual,
-    Between,
-    In,
-}
-
-pub struct CSVTable<'table> {
-    name: &'table str,
-    rows: Vec<CSVRow<'table>>
-}
-
-pub struct CSVRow<'row> {
-    row: Vec<CSVData<'row>>,
-}
-
-pub struct CSVData<'data> {
-    data_type : CSVType,
-    value: &'data str,
-}
-
-/// csv data Type
-///
-/// this is compatible with sqlite data types
-pub enum CSVType {
-    Null, // Seriously?
-    Text, // String or say char bytes,
-    Integer,
-    Float, // f8
-    BLOB, // Bytes
+    tables: HashMap<&'indexer str, CSVTable>,
 }
 
 impl<'indexer> Indexer<'indexer> {
+    pub fn new() -> Self {
+        Self {
+            read_option: ReadOption::Undefined,
+            tables: HashMap::new(),
+        }
+    }
 
-    //pub fn new() -> Self {
-        //Self {
-            //read_option: ReadOption::default(),
-        //}
-    //}
+    // TODO
+    // Add header_types arguments
+    pub fn add_table(&mut self, table_name: &'indexer str, read_option: ReadOption) {
+        let mut table_content = String::new();
+        match read_option {
+            ReadOption::Undefined => eprintln!("Read option is undefined"),
+            ReadOption::File(path) => {
+                table_content = std::fs::read_to_string(path).expect("Failed to read file");
+            },
+            ReadOption::Stdin => {
+                let stdin  = std::io::stdin();
+                stdin.lock()
+                    .read_to_string(&mut table_content)
+                    .expect("Failed to read content from stdio");
+            },
+            ReadOption::Value(var) => {
+                table_content = var;
+            },
+        }
 
-    pub fn index() -> String {
-        format!("")
+        let mut lines = table_content.lines();
+        let headers : Vec<(String, CSVType)>;
+        let mut rows  = vec![];
+
+        // TODO 
+        // Currently every type is string and is not configurable
+        if let Some(headers_line) = lines.next() {
+            headers = headers_line.split(',').map(| value | (value.to_owned(), CSVType::Text)).collect();
+        } else {
+            panic!("No header option is not supported");
+        }
+
+        for line in lines {
+            let row: Vec<&str> = line.split(',').collect();
+
+            if row.len() != headers.len() {
+                panic!("Row's length is different from header's length ");
+            }
+
+            rows.push(row);
+        }
+
+        self.tables.insert(table_name, CSVTable::new(table_name, headers, rows));
+    }
+
+    pub fn index(&self, table_name: &str, query: Option<Query>) {
+        let table = self.tables.get(table_name).expect("Failed to get table by name");
+
+        if let Some(query) = query {
+            let rows = table.query(&query);
+            let mut rows_iter = rows.iter().peekable();
+            if let Some(&row) = rows_iter.next() {
+                println!("{}", row);
+            }
+
+            while let Some(&row) = rows_iter.next() {
+                println!("{}", row);
+            }
+
+        } else {
+            println!("{}",table);
+        }
     }
 }
 
 pub enum ReadOption {
     Stdin,
     Value(String),
-    File(PathBuf)
-}
-
-impl Default for ReadOption {
-    fn default() -> Self {
-        Self::Stdin
-    }
+    File(PathBuf),
+    /// This is technically a default option and not used as variant
+    Undefined,
 }

@@ -12,3 +12,4 @@ path = "src/lib.rs"
 
 [dependencies]
 csv = "1.1.6"
+rayon = "1.5.1"
