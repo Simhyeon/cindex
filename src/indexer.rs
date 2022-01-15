@@ -16,7 +16,7 @@ impl<'indexer> Indexer<'indexer> {
 
     // TODO
     // Add header_types arguments
-    pub fn add_table(&mut self, table_name: &'indexer str, read_option: ReadOption) {
+    pub fn add_table(&mut self, table_name: &'indexer str, header_types: Vec<CSVType>, read_option: ReadOption) {
         let mut table_content = String::new();
         match read_option {
             ReadOption::Undefined => eprintln!("Read option is undefined"),
@@ -41,7 +41,7 @@ impl<'indexer> Indexer<'indexer> {
         // TODO 
         // Currently every type is string and is not configurable
         if let Some(headers_line) = lines.next() {
-            headers = headers_line.split(',').map(| value | (value.to_owned(), CSVType::Text)).collect();
+            headers = header_types[0..].iter().zip(headers_line.split(',')).map(|(value,t)| (t.to_owned(), *value)).collect();
         } else {
             panic!("No header option is not supported");
         }

@@ -1,4 +1,5 @@
 use std::fmt::Display;
+use rayon::prelude::*;
 
 #[derive(Debug)]
 pub struct CSVTable {
@@ -25,12 +26,10 @@ impl CSVTable {
     }
 
     pub fn query(&self, query: &Query) -> Vec<&CSVRow> {
-        let mut queried = vec![];
-        for row in &self.rows {
-            if row.filter(&self.headers,&query.predicates.as_ref().unwrap_or(&vec![])) {
-                queried.push(row);
-            }
-        }
+        let queried : Vec<&CSVRow> = self.rows.par_iter().filter(|row| {
+            row.filter(&self.headers,&query.predicates.as_ref().unwrap_or(&vec![]))
+        }).collect();
+
         queried
     }
 }
@@ -52,7 +51,7 @@ pub struct CSVRow {
 
 impl Display for CSVRow {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.data.iter().map(|datum| datum.value.as_str()).collect::<Vec<&str>>().join(","))
+        write!(f, "{}", self.data.par_iter().map(|datum| datum.value.as_str()).collect::<Vec<&str>>().join(","))
     }
 } 
 
@@ -68,14 +67,16 @@ impl CSVRow {
     }
 
     pub fn filter(&self, headers: &Vec<String>, predicates: &Vec<Predicate>) -> bool {
-        for pre in predicates {
-            let target = &self.data[headers.iter().position(|h| h == pre.column).unwrap()];
-            if !target.operate(&pre.operation, &pre.arguments) {
-                return false;
-            }
-        } 
+        let failed : Vec<_> = 
+            predicates.par_iter().filter(|pre|
+                {
+                    let target = &self.data[headers.iter().position(|h| h == pre.column).unwrap()];
+                    !target.operate(&pre.operation, &pre.arguments)
+                }
+            ).collect();
 
-        true
+        // Failed is zero which means it has succeeded
+        failed.len() == 0
     }
 }
 
@@ -156,6 +157,18 @@ pub enum CSVType {
     Integer,
     Float, 
     BLOB,
+}
+
+impl CSVType {
+    pub fn from_str(text: &str) -> Self {
+        match text.to_lowercase().as_str() {
+            "blob" => Self::BLOB,
+            "float" => Self::Float,
+            "integer" => Self::Integer,
+            "text" => Self::Text,
+            _ => Self::Null,
+        }
+    }
 }
 
 #[derive(Clone,Debug, PartialEq, PartialOrd)]
