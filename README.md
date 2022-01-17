@@ -7,6 +7,8 @@ Cindex is a simple to use csv indexer with SQL like simple query support.
 ```toml
 [dependencies]
 cindex = "*" # Use the latest version if possible
+
+# Use "default-features = false" if you don't need rayon iteration enhancement.
 ```
 
 ```rust
