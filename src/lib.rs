@@ -1,4 +1,5 @@
 mod indexer;
+#[cfg(test)]
 mod test;
 pub mod models;
 mod parser;
