@@ -95,7 +95,7 @@ impl Indexer {
             // Print headers
             self.write(&(self.header_splited(&table, &cols) + "\n"), &mut out_option)?;
         } else { // print normal headers
-            self.write(&table.headers.iter().map(|s| s.as_str()).collect::<Vec<&str>>().join(","), &mut out_option)?;
+            self.write(&table.headers.iter().map(|s| s.as_str()).collect::<Vec<&str>>().join(",") + "\n", &mut out_option)?;
         }
 
         while let Some(&row) = rows_iter.next() {
