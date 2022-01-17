@@ -82,9 +82,10 @@ impl Indexer {
             }
         } else { None };
 
-        // Print headers
-        let headers = table.headers.iter().map(|s| s.as_str()).collect::<Vec<&str>>().join(",") + "\n";
-        self.write(&headers, &mut out_option)?;
+        if let Some(cols) = &columns {
+            // Print headers
+            self.write(&(self.header_splited(&table, &cols) + "\n"), &mut out_option)?;
+        }
 
         while let Some(&row) = rows_iter.next() {
             let row_string = if let Some(cols) = &columns {
@@ -95,6 +96,22 @@ impl Indexer {
             self.write(&row_string, &mut out_option)?;
         }
         Ok(())
+    }
+
+    fn header_splited(&self, table : &CSVTable, columns: &Vec<usize>) -> String {
+        let mut col_iter = columns.iter();
+        let mut formatted = String::new();
+
+        // First item
+        if let Some(col) = col_iter.next() {
+            formatted.push_str(&table.headers[*col].to_string());
+        }
+
+        while let Some(col) = col_iter.next() {
+            formatted.push(',');
+            formatted.push_str(&table.headers[*col].to_string());
+        }
+        formatted
     }
 
     fn write(&self, content: &str, out_option: &mut OutOption) -> CIndexResult<()> {
