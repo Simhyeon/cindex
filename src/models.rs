@@ -1,5 +1,6 @@
 use std::fmt::Display;
 use crate::{parser::Parser, CIndexResult};
+#[cfg(feature = "rayon")]
 use rayon::prelude::*;
 use crate::error::CIndexError;
 use indexmap::IndexSet;
@@ -42,7 +43,12 @@ impl CsvTable {
 
         // TODO
         // Can it be improved?
-        let queried : Vec<_> = self.rows.par_iter().filter_map(|row| {
+        #[cfg(feature = "rayon")]
+        let iter = self.rows.par_iter();
+        #[cfg(not(feature = "rayon"))]
+        let iter = self.rows.iter();
+
+        let queried : Vec<_> = iter.filter_map(|row| {
             match row.filter(&self.headers,&predicates) {
                 Ok(boolean) => {
                     if boolean { Some(row) } else { None }
@@ -76,7 +82,7 @@ pub struct CsvRow {
 
 impl Display for CsvRow {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.data.par_iter().map(|datum| datum.value.as_str()).collect::<Vec<&str>>().join(","))
+        write!(f, "{}", self.data.iter().map(|datum| datum.value.as_str()).collect::<Vec<&str>>().join(","))
     }
 } 
 
@@ -92,8 +98,13 @@ impl CsvRow {
     }
 
     pub fn filter(&self, headers: &IndexSet<String>, predicates: &Vec<Predicate>) -> CIndexResult<bool> {
+        #[cfg(feature = "rayon")]
+        let iter = predicates.par_iter();
+        #[cfg(not(feature = "rayon"))]
+        let iter = predicates.iter();
+
         let failed : Result<Vec<_>, CIndexError> = 
-            predicates.par_iter().map(|pre|
+            iter.map(|pre|
                 {
                     // This is safe to unwrap because table's query method alwasy check if column
                     // exists before filtering

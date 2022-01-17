@@ -1,6 +1,7 @@
 use std::io::Write;
 use std::{io::Read, fs::File};
 use std::collections::HashMap;
+#[cfg(feature = "rayon")]
 use rayon::prelude::*;
 
 use crate::{CIndexResult, CIndexError};
@@ -78,8 +79,12 @@ impl Indexer {
         let columns: Option<Vec<usize>> = if let Some(cols) = query.column_names {
             if cols.len() > 0 && cols[0] == "*" { None }
             else {
-                // TODO 
-                let collection : Result<Vec<usize>,CIndexError> = cols.par_iter().map(|i| -> Result<usize, CIndexError> {
+                #[cfg(feature = "rayon")]
+                let iter = cols.par_iter();
+                #[cfg(not(feature = "rayon"))]
+                let iter = cols.iter();
+
+                let collection : Result<Vec<usize>,CIndexError> = iter.map(|i| -> Result<usize, CIndexError> {
                     Ok(table.headers.get_index_of(i).ok_or(CIndexError::InvalidColumn(format!("No such column \"{}\"", i)))?)
                 }).collect();
                 Some(collection?)
