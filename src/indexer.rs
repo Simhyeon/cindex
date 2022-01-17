@@ -1,47 +1,48 @@
-use std::{path::PathBuf, collections::HashMap, io::Read};
+use std::io::Write;
+use std::{io::Read, fs::File};
+use std::collections::HashMap;
+use rayon::prelude::*;
+
+use crate::{CIndexResult, CIndexError};
 use crate::models::{CSVType, CSVTable, Query};
 
-pub struct Indexer<'indexer> {
-    read_option: ReadOption,
-    tables: HashMap<&'indexer str, CSVTable>,
+pub struct Indexer {
+    tables: HashMap<String, CSVTable>,
 }
 
-impl<'indexer> Indexer<'indexer> {
+impl Indexer {
     pub fn new() -> Self {
         Self {
-            read_option: ReadOption::Undefined,
             tables: HashMap::new(),
         }
     }
 
-    // TODO
-    // Add header_types arguments
-    pub fn add_table(&mut self, table_name: &'indexer str, header_types: Vec<CSVType>, read_option: ReadOption) {
-        let mut table_content = String::new();
-        match read_option {
-            ReadOption::Undefined => eprintln!("Read option is undefined"),
-            ReadOption::File(path) => {
-                table_content = std::fs::read_to_string(path).expect("Failed to read file");
-            },
-            ReadOption::Stdin => {
-                let stdin  = std::io::stdin();
-                stdin.lock()
-                    .read_to_string(&mut table_content)
-                    .expect("Failed to read content from stdio");
-            },
-            ReadOption::Value(var) => {
-                table_content = var;
-            },
-        }
+    /// Add table without header
+    pub fn add_table_fast(&mut self, table_name: &str, input: impl Read) -> CIndexResult<()>{
+        self.add_table(table_name, vec![], input)
+    }
+
+    /// Add table
+    pub fn add_table(&mut self, table_name: &str, header_types: Vec<CSVType>, mut input: impl Read) -> CIndexResult<()> {
+        let mut table_content = String::new(); 
+        input.read_to_string(&mut table_content)?;
 
         let mut lines = table_content.lines();
         let headers : Vec<(String, CSVType)>;
         let mut rows  = vec![];
 
-        // TODO 
-        // Currently every type is string and is not configurable
         if let Some(headers_line) = lines.next() {
-            headers = header_types[0..].iter().zip(headers_line.split(',')).map(|(value,t)| (t.to_owned(), *value)).collect();
+            // Pad headers if heade's length is longer than header_types
+
+            let header_types_iter = header_types[0..].iter().chain(std::iter::repeat(&CSVType::Text));
+            let header_lines_iter = headers_line.split(',');
+
+            // NOTE
+            // Technically speaking, types can be bigger than header values length
+            // But it yields expectable behaviour, thus it stays as it is.
+            let len = header_lines_iter.clone().collect::<Vec<&str>>().len();
+
+            headers = header_types_iter.zip(header_lines_iter).take(len).map(|(value,t)| (t.to_owned(), *value)).collect();
         } else {
             panic!("No header option is not supported");
         }
@@ -56,33 +57,58 @@ impl<'indexer> Indexer<'indexer> {
             rows.push(row);
         }
 
-        self.tables.insert(table_name, CSVTable::new(table_name, headers, rows));
+        self.tables.insert(table_name.to_owned(), CSVTable::new(headers, rows)?);
+        Ok(())
     }
 
-    pub fn index(&self, table_name: &str, query: Option<Query>) {
-        let table = self.tables.get(table_name).expect("Failed to get table by name");
+    //<INDEXING>
+    pub fn index_raw(&self, raw_query: &str, out_option: OutOption) -> CIndexResult<()> {
+        self.index(Query::from_str(raw_query), out_option)
+    }
 
-        if let Some(query) = query {
-            let rows = table.query(&query);
-            let mut rows_iter = rows.iter().peekable();
-            if let Some(&row) = rows_iter.next() {
-                println!("{}", row);
+    pub fn index(&self, query: Query, mut out_option: OutOption) -> CIndexResult<()> {
+        let table = self.tables.get(query.table_name.as_str()).ok_or(CIndexError::InvalidTableName(format!("Table \"{}\" doesn't exist", query.table_name)))?;
+
+        let filtered_rows = table.query(&query)?;
+        let mut rows_iter = filtered_rows.iter();
+        let columns: Option<Vec<usize>> = if let Some(cols) = query.column_names {
+            if cols.len() > 0 && cols[0] == "*" { None }
+            else {
+                // TODO 
+                let collection : Result<Vec<usize>,CIndexError> = cols.par_iter().map(|i| -> Result<usize, CIndexError> {
+                    Ok(table.header_map.get(i).ok_or(CIndexError::InvalidColumn(format!("No such column \"{}\"", i)))?.index)
+                }).collect();
+                Some(collection?)
             }
+        } else { None };
 
-            while let Some(&row) = rows_iter.next() {
-                println!("{}", row);
-            }
+        // Print headers
+        let headers = table.get_sorted_header().iter().map(|( h, _)| h.to_owned()).collect::<Vec<&str>>().join(",") + "\n";
+        self.write(&headers, &mut out_option)?;
 
-        } else {
-            println!("{}",table);
+        while let Some(&row) = rows_iter.next() {
+            let row_string = if let Some(cols) = &columns {
+                row.column_splited(cols) + "\n"
+            } else {
+                row.to_string() + "\n"
+            };
+            self.write(&row_string, &mut out_option)?;
         }
+        Ok(())
+    }
+
+    fn write(&self, content: &str, out_option: &mut OutOption) -> CIndexResult<()> {
+        match out_option {
+            OutOption::Term => print!("{}", content),
+            OutOption::File(file) => file.write_all(content.as_bytes())?,
+            OutOption::Value(target) => target.push_str(content),
+        }
+        Ok(())
     }
 }
 
-pub enum ReadOption {
-    Stdin,
-    Value(String),
-    File(PathBuf),
-    /// This is technically a default option and not used as variant
-    Undefined,
+pub enum OutOption<'a> {
+    Term,
+    Value(&'a mut String),
+    File(File),
 }
