@@ -5,16 +5,16 @@ use crate::error::CIndexError;
 use indexmap::IndexSet;
 
 #[derive(Debug)]
-pub struct CSVTable {
+pub struct CsvTable {
     pub(crate) headers: IndexSet<String>,
-    pub(crate) rows: Vec<CSVRow>,
+    pub(crate) rows: Vec<CsvRow>,
 }
 
-impl CSVTable {
-    pub fn new(headers: Vec<(String, CSVType)>, rows: Vec<Vec<&str>>) -> CIndexResult<Self> {
+impl CsvTable {
+    pub fn new(headers: Vec<(String, CsvType)>, rows: Vec<Vec<&str>>) -> CIndexResult<Self> {
         // Make this rayon compatible iterator
-        let rows : CIndexResult<Vec<CSVRow>> = rows.iter().map(|row| {
-            CSVRow::new(&headers, row)
+        let rows : CIndexResult<Vec<CsvRow>> = rows.iter().map(|row| {
+            CsvRow::new(&headers, row)
         }).collect();
 
         let mut header_set : IndexSet<String> = IndexSet::new();
@@ -29,7 +29,7 @@ impl CSVTable {
         })
     }
 
-    pub fn query(&self, query: &Query) -> CIndexResult<Vec<&CSVRow>> {
+    pub fn query(&self, query: &Query) -> CIndexResult<Vec<&CsvRow>> {
         let boilerplate = vec![];
         let predicates = if let Some(pre) = query.predicates.as_ref() {
             for item in pre {
@@ -58,7 +58,7 @@ impl CSVTable {
     }
 }
 
-impl Display for CSVTable {
+impl Display for CsvTable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}\n",self.headers.iter().map(|s| s.as_str()).collect::<Vec<&str>>().join(","))?;
 
@@ -70,22 +70,22 @@ impl Display for CSVTable {
 }
 
 #[derive(Debug)]
-pub struct CSVRow {
-    data: Vec<CSVData>,
+pub struct CsvRow {
+    data: Vec<CsvData>,
 }
 
-impl Display for CSVRow {
+impl Display for CsvRow {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.data.par_iter().map(|datum| datum.value.as_str()).collect::<Vec<&str>>().join(","))
     }
 } 
 
-impl CSVRow {
-    pub fn new(headers: &Vec<(String, CSVType)>, row: &Vec<&str>) -> CIndexResult<Self> {
-        let mut data : Vec<CSVData> = Vec::new();
+impl CsvRow {
+    pub fn new(headers: &Vec<(String, CsvType)>, row: &Vec<&str>) -> CIndexResult<Self> {
+        let mut data : Vec<CsvData> = Vec::new();
         // Check index of headers and type check
         for (index, &item) in row.iter().enumerate() {
-            data.push(CSVData::new(headers[index].1,item)?);
+            data.push(CsvData::new(headers[index].1,item)?);
         }
 
         Ok(Self { data })
@@ -127,19 +127,19 @@ impl CSVRow {
 }
 
 #[derive(Debug)]
-pub struct CSVData {
-    data_type : CSVType,
+pub struct CsvData {
+    data_type : CsvType,
     value: String,
 }
 
-impl Display for CSVData {
+impl Display for CsvData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f,"{}", self.value)
     }
 }
 
-impl CSVData {
-    pub fn new(data_type: CSVType, value: &str) -> CIndexResult<Self> {
+impl CsvData {
+    pub fn new(data_type: CsvType, value: &str) -> CIndexResult<Self> {
         let data = Self {
             data_type,
             value: value.to_owned(),
@@ -151,15 +151,15 @@ impl CSVData {
 
     pub fn check_type(&self) -> CIndexResult<()> {
         match self.data_type {
-            CSVType::Null    => {
+            CsvType::Null    => {
                 if !self.value.is_empty() {
                     return Err(CIndexError::InvalidDataType(format!("Value \"{}\" is not NULL", self.value)));
                 }
             },
-            CSVType::Float   => {
+            CsvType::Float   => {
                 self.value.parse::<f32>().map_err(|_| CIndexError::InvalidDataType(format!("Value \"{}\" is not a floating point number", self.value)))?;
             },
-            CSVType::Integer => {
+            CsvType::Integer => {
                 self.value.parse::<i32>().map_err(|_| CIndexError::InvalidDataType(format!("Value \"{}\" is not an integer", self.value)))?;
             },
             _ => (),
@@ -174,21 +174,21 @@ impl CSVData {
         }
 
         let (var, arg) = match self.data_type {
-            CSVType::Null => (CSVVariant::Null,CSVVariant::Null),
-            CSVType::Text => (CSVVariant::Text(&self.value), CSVVariant::Text(&args[0])),
-            CSVType::Integer => {
+            CsvType::Null => (CsvVariant::Null,CsvVariant::Null),
+            CsvType::Text => (CsvVariant::Text(&self.value), CsvVariant::Text(&args[0])),
+            CsvType::Integer => {
                 (
-                    CSVVariant::Integer(self.value.parse().map_err(|_| CIndexError::TypeDiscord(format!("{} as integer", self.value)))?),
-                    CSVVariant::Integer(args[0].parse().map_err(|_| CIndexError::TypeDiscord(format!("{} as integer", args[0])))?),
+                    CsvVariant::Integer(self.value.parse().map_err(|_| CIndexError::TypeDiscord(format!("{} as integer", self.value)))?),
+                    CsvVariant::Integer(args[0].parse().map_err(|_| CIndexError::TypeDiscord(format!("{} as integer", args[0])))?),
                 )
             },
-            CSVType::Float => {
+            CsvType::Float => {
                 (
-                    CSVVariant::Float(self.value.parse().map_err(|_| CIndexError::TypeDiscord(format!("{} as float", self.value)))?),
-                    CSVVariant::Float(args[0].parse().map_err(|_| CIndexError::TypeDiscord(format!("{} as float", args[0])))?),
+                    CsvVariant::Float(self.value.parse().map_err(|_| CIndexError::TypeDiscord(format!("{} as float", self.value)))?),
+                    CsvVariant::Float(args[0].parse().map_err(|_| CIndexError::TypeDiscord(format!("{} as float", args[0])))?),
                 )
             },
-            CSVType::BLOB => (CSVVariant::BLOB(self.value.as_bytes()), CSVVariant::BLOB(&args[0].as_bytes())),
+            CsvType::BLOB => (CsvVariant::BLOB(self.value.as_bytes()), CsvVariant::BLOB(&args[0].as_bytes())),
         };
 
         let result = match operation {
@@ -226,11 +226,9 @@ impl CSVData {
     }
 }
 
-/// csv data Type
-///
-/// this is compatible with sqlite data types
+/// CSV data Type
 #[derive(Clone,Copy,Debug)]
-pub enum CSVType {
+pub enum CsvType {
     Null, 
     Text, 
     Integer,
@@ -238,7 +236,7 @@ pub enum CSVType {
     BLOB,
 }
 
-impl CSVType {
+impl CsvType {
     pub fn from_str(text: &str) -> Self {
         match text.to_lowercase().as_str() {
             "blob" => Self::BLOB,
@@ -250,8 +248,11 @@ impl CSVType {
     }
 }
 
+/// Wrapper around csvtyped data 
+///
+/// This enables various comparsion operation as single enum value.
 #[derive(Clone,Debug, PartialEq, PartialOrd)]
-pub enum CSVVariant<'var> {
+pub enum CsvVariant<'var> {
     Null, 
     Text(&'var str),
     Integer(i32),
@@ -259,6 +260,7 @@ pub enum CSVVariant<'var> {
     BLOB(&'var [u8]),
 }
 
+/// Query to index a table
 #[derive(Debug)]
 pub struct Query {
     pub table_name: String,
@@ -294,8 +296,8 @@ impl Query {
         }
     }
 
-    pub fn columns(mut self, colum_names: Vec<String>) -> Self {
-        self.column_names.replace(colum_names);
+    pub fn columns(mut self, colum_names: Vec<impl AsRef<str>>) -> Self {
+        self.column_names.replace(colum_names.iter().map(|s| s.as_ref().to_owned()).collect());
         self
     }
 
@@ -318,6 +320,8 @@ impl Query {
     }
 }
 
+
+/// Predicate to decide whether a specific row should be included
 #[derive(Debug)]
 pub struct Predicate {
     separator: Separator,
@@ -356,8 +360,8 @@ impl Predicate {
         self
     }
 
-    pub fn args(mut self, args:Vec<String>) -> Self {
-        self.arguments = args;
+    pub fn args(mut self, args:Vec<impl AsRef<str>>) -> Self {
+        self.arguments = args.iter().map(|s| s.as_ref().to_owned()).collect();
         self
     }
 
@@ -393,6 +397,7 @@ impl Predicate {
     }
 }
 
+/// Operator to calculate operands
 #[derive(Debug)]
 pub enum Operator {
     Bigger,

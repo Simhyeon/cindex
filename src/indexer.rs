@@ -4,13 +4,15 @@ use std::collections::HashMap;
 use rayon::prelude::*;
 
 use crate::{CIndexResult, CIndexError};
-use crate::models::{CSVType, CSVTable, Query};
+use crate::models::{CsvType, CsvTable, Query};
 
+/// Entry struct for indexing csv tables
 pub struct Indexer {
-    tables: HashMap<String, CSVTable>,
+    tables: HashMap<String, CsvTable>,
 }
 
 impl Indexer {
+    /// Create new indexer
     pub fn new() -> Self {
         Self {
             tables: HashMap::new(),
@@ -23,18 +25,18 @@ impl Indexer {
     }
 
     /// Add table
-    pub fn add_table(&mut self, table_name: &str, header_types: Vec<CSVType>, mut input: impl Read) -> CIndexResult<()> {
+    pub fn add_table(&mut self, table_name: &str, header_types: Vec<CsvType>, mut input: impl Read) -> CIndexResult<()> {
         let mut table_content = String::new(); 
         input.read_to_string(&mut table_content)?;
 
         let mut lines = table_content.lines();
-        let headers : Vec<(String, CSVType)>;
+        let headers : Vec<(String, CsvType)>;
         let mut rows  = vec![];
 
         if let Some(headers_line) = lines.next() {
             // Pad headers if heade's length is longer than header_types
 
-            let header_types_iter = header_types[0..].iter().chain(std::iter::repeat(&CSVType::Text));
+            let header_types_iter = header_types[0..].iter().chain(std::iter::repeat(&CsvType::Text));
             let header_lines_iter = headers_line.split(',');
 
             // NOTE
@@ -57,15 +59,17 @@ impl Indexer {
             rows.push(row);
         }
 
-        self.tables.insert(table_name.to_owned(), CSVTable::new(headers, rows)?);
+        self.tables.insert(table_name.to_owned(), CsvTable::new(headers, rows)?);
         Ok(())
     }
 
     //<INDEXING>
+    /// Index with raq query
     pub fn index_raw(&self, raw_query: &str, out_option: OutOption) -> CIndexResult<()> {
         self.index(Query::from_str(raw_query), out_option)
     }
 
+    /// Index with pre-built query
     pub fn index(&self, query: Query, mut out_option: OutOption) -> CIndexResult<()> {
         let table = self.tables.get(query.table_name.as_str()).ok_or(CIndexError::InvalidTableName(format!("Table \"{}\" doesn't exist", query.table_name)))?;
 
@@ -98,7 +102,7 @@ impl Indexer {
         Ok(())
     }
 
-    fn header_splited(&self, table : &CSVTable, columns: &Vec<usize>) -> String {
+    fn header_splited(&self, table : &CsvTable, columns: &Vec<usize>) -> String {
         let mut col_iter = columns.iter();
         let mut formatted = String::new();
 
@@ -124,6 +128,7 @@ impl Indexer {
     }
 }
 
+/// Ouput redirect option
 pub enum OutOption<'a> {
     Term,
     Value(&'a mut String),
