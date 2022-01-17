@@ -1,11 +1,12 @@
-use std::{fmt::Display, collections::HashMap};
+use std::fmt::Display;
 use crate::{parser::Parser, CIndexResult};
 use rayon::prelude::*;
 use crate::error::CIndexError;
+use indexmap::IndexSet;
 
 #[derive(Debug)]
 pub struct CSVTable {
-    pub(crate) header_map: HashMap<String,CSVHeader>,
+    pub(crate) headers: IndexSet<String>,
     pub(crate) rows: Vec<CSVRow>,
 }
 
@@ -16,14 +17,14 @@ impl CSVTable {
             CSVRow::new(&headers, row)
         }).collect();
 
-        let mut header_map = HashMap::new();
+        let mut header_set : IndexSet<String> = IndexSet::new();
 
-        for (index,(header,csv_type)) in headers.iter().enumerate() {
-            header_map.insert(header.to_owned(), CSVHeader::new(index,*csv_type));
+        for (header,_) in headers.iter() {
+            header_set.insert(header.to_owned());
         }
 
         Ok(Self {
-            header_map,
+            headers: header_set,
             rows: rows?,
         })
     }
@@ -32,7 +33,7 @@ impl CSVTable {
         let boilerplate = vec![];
         let predicates = if let Some(pre) = query.predicates.as_ref() {
             for item in pre {
-                if !self.header_map.contains_key(&item.column) {
+                if !self.headers.contains(&item.column) {
                     return Err(CIndexError::InvalidColumn(format!("Failed to get column \"{}\" from header", item.column)));
                 }
             }
@@ -42,7 +43,7 @@ impl CSVTable {
         // TODO
         // Can it be improved?
         let queried : Vec<_> = self.rows.par_iter().filter_map(|row| {
-            match row.filter(&self.header_map,&predicates) {
+            match row.filter(&self.headers,&predicates) {
                 Ok(boolean) => {
                     if boolean { Some(row) } else { None }
                 },
@@ -55,42 +56,16 @@ impl CSVTable {
 
         Ok(queried)
     }
-
-    pub(crate) fn get_sorted_header(&self) -> Vec<(&str, &CSVHeader)> {
-        let mut headers: Vec<(&str, &CSVHeader)> = self.header_map.iter().map(|(k,v)| (k.as_str(),v)).collect();
-        headers.par_sort_by(|l,r| l.1.index.cmp(&r.1.index));
-        headers
-    }
 }
 
 impl Display for CSVTable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // Sort headers by value's "index"
-        let mut headers: Vec<(&str, &CSVHeader)> = self.header_map.iter().map(|(k,v)| (k.as_str(),v)).collect();
-        headers.par_sort_by(|l,r| l.1.index.cmp(&r.1.index));
-        let headers: Vec<&str> = headers.iter().map(|h| h.0).collect();
-
-        write!(f, "{}\n",headers.join(","))?;
+        write!(f, "{}\n",self.headers.iter().map(|s| s.as_str()).collect::<Vec<&str>>().join(","))?;
 
         for row in &self.rows {
             write!(f, "{}\n",row)?;
         }
         write!(f,"")
-    }
-}
-
-#[derive(Debug)]
-pub struct CSVHeader {
-    pub(crate) index: usize,
-    pub(crate) csv_type: CSVType,
-}
-
-impl CSVHeader {
-    fn new(index: usize, csv_type: CSVType) -> Self {
-        Self { 
-            index,
-            csv_type,
-        }
     }
 }
 
@@ -116,19 +91,22 @@ impl CSVRow {
         Ok(Self { data })
     }
 
-    pub fn filter(&self, header_map: &HashMap<String,CSVHeader>, predicates: &Vec<Predicate>) -> CIndexResult<bool> {
+    pub fn filter(&self, headers: &IndexSet<String>, predicates: &Vec<Predicate>) -> CIndexResult<bool> {
         let failed : Result<Vec<_>, CIndexError> = 
-            predicates.par_iter().filter_map(|pre|
+            predicates.par_iter().map(|pre|
                 {
                     // This is safe to unwrap because table's query method alwasy check if column
                     // exists before filtering
-                    let target = &self.data[header_map.get(&pre.column).unwrap().index];
-                    Some(target.operate(&pre.operation, &pre.arguments))
+                    let target = &self.data[headers.get_index_of(&pre.column).unwrap()];
+                    target.operate(&pre.operation, &pre.arguments)
                 }
             ).collect();
 
+        let failed = failed?;
+        let failed: Vec<_> = failed.iter().filter(|s| *s == &false).collect();
+
         // Failed is zero which means it has succeeded
-        Ok(failed?.len() == 0)
+        Ok(failed.len() == 0)
     }
 
     pub fn column_splited(&self, columns: &Vec<usize>) -> String {
@@ -286,6 +264,10 @@ pub struct Query {
     pub table_name: String,
     pub column_names: Option<Vec<String>>,
     predicates: Option<Vec<Predicate>>,
+    
+    // TODO
+    // Currently join is not supported
+    #[allow(dead_code)]
     joined_tables: Option<Vec<String>>,
 }
 
@@ -339,7 +321,7 @@ impl Query {
 #[derive(Debug)]
 pub struct Predicate {
     separator: Separator,
-    column: String,
+    pub(crate) column: String,
     operation: Operator,
     arguments: Vec<String>,
 }

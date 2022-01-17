@@ -76,14 +76,14 @@ impl Indexer {
             else {
                 // TODO 
                 let collection : Result<Vec<usize>,CIndexError> = cols.par_iter().map(|i| -> Result<usize, CIndexError> {
-                    Ok(table.header_map.get(i).ok_or(CIndexError::InvalidColumn(format!("No such column \"{}\"", i)))?.index)
+                    Ok(table.headers.get_index_of(i).ok_or(CIndexError::InvalidColumn(format!("No such column \"{}\"", i)))?)
                 }).collect();
                 Some(collection?)
             }
         } else { None };
 
         // Print headers
-        let headers = table.get_sorted_header().iter().map(|( h, _)| h.to_owned()).collect::<Vec<&str>>().join(",") + "\n";
+        let headers = table.headers.iter().map(|s| s.as_str()).collect::<Vec<&str>>().join(",") + "\n";
         self.write(&headers, &mut out_option)?;
 
         while let Some(&row) = rows_iter.next() {

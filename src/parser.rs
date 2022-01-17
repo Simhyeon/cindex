@@ -110,14 +110,14 @@ impl Parser {
 
         for token in &self.state.where_args {
             if let Some(sep) = self.find_separator(token) {
-                predicates.push(p);
+                if !p.column.is_empty() {predicates.push(p);}
 
                 // Reset predicate and where cursor
                 // for next iteration
                 p = Predicate::build();
                 w_cursor = WhereCursor::Left;
 
-                p.set_separator(sep);
+                p.set_separator(sep); 
             }
 
             match w_cursor {
@@ -136,7 +136,7 @@ impl Parser {
         }
 
         // Add a lastly created predicated into vector
-        predicates.push(p);
+        if !p.column.is_empty() {predicates.push(p);}
 
         Some(predicates)
     }
