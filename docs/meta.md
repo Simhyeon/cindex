@@ -18,6 +18,7 @@ coded...
 	* [x] Search with custom columns
 	* [ ] Search with joined tabled
 
+* [ ] Disable rayon feature
 * [ ] Datetime
 * [ ] && or || for predicate
 * [x] Header also select columns
