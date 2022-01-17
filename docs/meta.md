@@ -7,20 +7,21 @@
 coded...
 
 * [ ] Baisc models
-	* [ ] Indexer
-	* [ ] Query
-	* [ ] Predicate
-	* [ ] Operation
-	* [ ] Csv Structs
-		* [ ] Table
-		* [ ] Row
-		* [ ] Data
-		* [ ] Type
+	* [x] Implement file write option
+    * [ ] SQL Like queries
+		* [ ] Doesn't support JOIN yet...
 
 * [ ] Basic operation
-	* [ ] Read CSV value as structured format (Add table)
-	* [ ] Print to designated format
-	* [ ] Search
-	* [ ] Search with predicates
+	* [x] Read CSV value as structured format (Add table)
+	* [x] Search
+	* [x] Search with predicates
+	* [x] Search with custom columns
 	* [ ] Search with joined tabled
-	* [ ] Search with custom columns
+
+* [ ] Datetime
+* [ ] && or || for predicate
+* [x] Header also select columns
+* [x] Find usage of header\_types
+* [x] Error handling
+* [x] CSVData type checking
+* [ ] Possibly windows "\r\n" option
