@@ -20,7 +20,7 @@ mod tests {
         // Indexing
 
         // Create query object and print output to terminal
-        let query = Query::from_str("SELECT * FROM table1 WHERE a LIKE (?i)hello AND b = 1");
+        let query = Query::from_str("SELECT * FROM table1 ORDER BY a DESC WHERE c IN 111 333 224")?;
         indexer.index(query, OutOption::Term)?;
 
         Ok(())
