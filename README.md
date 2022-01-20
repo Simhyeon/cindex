@@ -94,15 +94,17 @@ SELECT col1,col2 FROM table1 WHERE col1 = 10 AND col2 LIKE ^start
 
 Supported WHERE operations are
 
-- >= 
-- >
-- <=
-- <
-- =
-- !=
-- IN
-- BETWEEN
-- LIKE ( with **regeular expression** )
+```
+ >= 
+ >
+ <=
+ <
+ =
+ !=
+ IN
+ BETWEEN
+ LIKE ( with **regeular expression** )
+```
 
 # TODO
 
