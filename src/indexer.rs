@@ -73,7 +73,7 @@ impl Indexer {
     //<INDEXING>
     /// Index with raq query
     pub fn index_raw(&self, raw_query: &str, out_option: OutOption) -> CIndexResult<()> {
-        self.index(Query::from_str(raw_query), out_option)
+        self.index(Query::from_str(raw_query)?, out_option)
     }
 
     /// Index with pre-built query
