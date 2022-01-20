@@ -9,6 +9,7 @@ use crate::models::{CsvType, CsvTable, Query};
 
 /// Entry struct for indexing csv tables
 pub struct Indexer {
+    print_header: bool,
     tables: HashMap<String, CsvTable>,
 }
 
@@ -16,8 +17,13 @@ impl Indexer {
     /// Create new indexer
     pub fn new() -> Self {
         Self {
+            print_header: true,
             tables: HashMap::new(),
         }
+    }
+
+    pub fn dont_print_header(&mut self) {
+        self.print_header = false;
     }
 
     /// Add table without header
@@ -91,11 +97,14 @@ impl Indexer {
             }
         } else { None };
 
-        if let Some(cols) = &columns {
-            // Print headers
-            self.write(&(self.header_splited(&table, &cols) + "\n"), &mut out_option)?;
-        } else { // print normal headers
-            self.write(&(table.headers.iter().map(|s| s.as_str()).collect::<Vec<&str>>().join(",") + "\n"), &mut out_option)?;
+        // Print headers
+        if self.print_header {
+            if let Some(cols) = &columns {
+                // Print headers
+                self.write(&(self.header_splited(&table, &cols) + "\n"), &mut out_option)?;
+            } else { // print normal headers
+                self.write(&(table.headers.iter().map(|s| s.as_str()).collect::<Vec<&str>>().join(",") + "\n"), &mut out_option)?;
+            }
         }
 
         while let Some(&row) = rows_iter.next() {
