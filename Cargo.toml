@@ -21,3 +21,4 @@ default = ["rayon"]
 rayon = { version = "1.5.1", optional = true}
 thiserror = "1.0.25"
 indexmap = "1.6.2"
+regex = "1.5.4"
