@@ -46,7 +46,7 @@
 /// // Indexing
 /// 
 /// // Create query object and print output to terminal
-/// let query = Query::from_str("SELECT a,b,c FROM table1 WHERE a = 10");
+/// let query = Query::from_str("SELECT a,b,c FROM table1 WHERE a = 10").expect("Failed to create query");
 /// indexer.index(query, OutOption::Term).expect("Failed to index a table");
 /// 
 /// // Use raw query and yield output to a file
