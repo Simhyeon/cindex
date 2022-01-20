@@ -1,4 +1,4 @@
-### Basic todo before 0.1.0
+### TODO
 
 - Currently table doesn't set header type
 - Thus every type is string by default
@@ -18,11 +18,16 @@ coded...
 	* [x] Search with custom columns
 	* [ ] Search with joined tabled
 
-* [ ] Disable rayon feature
+* [ ] Join functionality
+* [ ] <OR> variant for predicate
+- Currently all predicate are ALL variant
 * [ ] Datetime
-* [ ] && or || for predicate
+* [x] In and between support for raw query
+* [x] Like support
+* [x] Disable rayon feature
 * [x] Header also select columns
 * [x] Find usage of header\_types
 * [x] Error handling
 * [x] CSVData type checking
+* [x] Order by
 * [ ] Possibly windows "\r\n" option

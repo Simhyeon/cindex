@@ -1,6 +1,6 @@
 # Cindex, a csv indexer
 
-Cindex is a easy to use csv indexer with SQL-like simple query support.
+Cindex is a easy to use csv indexer with a simple SQL-like query support.
 
 Cindex is not intended for heavy database indexing but for simple in-memory
 querying. Use other databases interaction layer if you're using big chunks of
@@ -52,7 +52,8 @@ indexer.index(query, OutOption::Term).expect("Failed to index a table");
 // Use raw query and yield output to a file
 indexer.index_raw(
     "SELECT * FROM table3 WHERE id = 10", 
-    OutOption::File(std::fs::File::create("out.csv").expect("Failed to create a file"))
+    OutOption::File(std::fs::File::create("out.csv")
+		.expect("Failed to create a file"))
 ).expect("Failed to index a table");
 
 // Use builder pattern to construct query and index a table
@@ -68,8 +69,40 @@ let query = Query::empty("table2")
     );
 
 let mut acc = String::new();
-indexer.index(query, OutOption::Value(&mut acc)).expect("Failed to index a table");
+indexer.index(query, OutOption::Value(&mut acc))
+	.expect("Failed to index a table");
+
+// Disable header print if you want
+indexer.set_print_header(false);
 ```
+# Query syntax
+
+Cindex's query syntax is similar to SQL but has some small differences.
+
+```SQL
+/* Select everythig from given table*/
+SELECT * FROM table1
+
+/* Select everything from given table and order by column with descending
+order*/
+SELECT * FROM table1 ORDER BY col1 DESC
+
+/* Select given columns from table where column's value is equal to given
+condition and also other column's value matches regex expression */
+SELECT col1,col2 FROM table1 WHERE col1 = 10 AND col2 LIKE ^start
+```
+
+Supported WHERE operations are
+
+- >= 
+- >
+- <=
+- <
+- =
+- !=
+- IN
+- BETWEEN
+- LIKE ( with **regeular expression** )
 
 # TODO
 
