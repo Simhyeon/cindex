@@ -22,8 +22,9 @@ impl Indexer {
         }
     }
 
-    pub fn dont_print_header(&mut self) {
-        self.print_header = false;
+    /// Decide whether header to be printed or not
+    pub fn set_print_header(&mut self, tv: bool) {
+        self.print_header = tv;
     }
 
     /// Add table without header
