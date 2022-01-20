@@ -15,7 +15,7 @@
 /// # Use "default-features = false" if you don't need rayon iteration enhancement.
 /// ```
 /// 
-/// ```rust
+/// ```no_run
 /// use std::fs::File;
 /// use cindex::{Indexer, CsvType, Predicate, Query, OutOption, Operator};
 /// 

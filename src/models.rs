@@ -2,6 +2,7 @@ use std::fmt::Display;
 use crate::{parser::Parser, CIndexResult};
 #[cfg(feature = "rayon")]
 use rayon::prelude::*;
+use regex::Regex;
 use crate::error::CIndexError;
 use indexmap::IndexSet;
 
@@ -203,6 +204,11 @@ impl CsvData {
         };
 
         let result = match operation {
+            Operator::Like => {
+                let arg = arg.as_string();
+                let matcher = Regex::new(&arg).map_err(|_|CIndexError::InvalidQueryStatement(format!("Could not make a regex statemtn from given value: \"{}\"", arg)))?;
+                matcher.is_match(&var.as_string())
+            }
             Operator::Bigger => {
                 var > arg
             },
@@ -269,6 +275,18 @@ pub enum CsvVariant<'var> {
     Integer(i32),
     Float(f32),
     BLOB(&'var [u8]),
+}
+
+impl<'var> CsvVariant<'var> {
+    fn as_string(&self) -> String {
+        match self {
+            Self::Null => String::new(),
+            Self::Text(text) => text.to_string(),
+            Self::BLOB(bytes) => String::from_utf8_lossy(&bytes.to_vec()).to_string(),
+            Self::Float(num) => num.to_string(),
+            Self::Integer(num) => num.to_string(),
+        }
+    }
 }
 
 /// Query to index a table
@@ -417,6 +435,7 @@ pub enum Operator {
     SmallerOrEqual,
     Equal,
     NotEqual,
+    Like,
     Between,
     In,
 }
@@ -432,6 +451,7 @@ impl Operator {
             "!="        => Self::NotEqual,
             "between"   => Self::Between,
             "in"        => Self::In,
+            "like"      => Self::Like,
             _ => panic!("NOt implemented"),
         }
     }

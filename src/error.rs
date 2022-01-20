@@ -14,6 +14,8 @@ pub enum CIndexError {
     InvalidColumn(String),
     #[error("Invalid data type \n= {0}")]
     InvalidDataType(String),
+    #[error("Invalid query statement \n= {0}")]
+    InvalidQueryStatement(String),
 }
 
 impl From<std::io::Error> for CIndexError {

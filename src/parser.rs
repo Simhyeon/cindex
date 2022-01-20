@@ -118,6 +118,7 @@ impl Parser {
                 w_cursor = WhereCursor::Left;
 
                 p.set_separator(sep); 
+                continue;
             }
 
             match w_cursor {
@@ -143,8 +144,8 @@ impl Parser {
 
     fn find_separator(&self, token: &str) -> Option<Separator> {
         match token {
-            "&&" => Some(Separator::And),
-            "||" => Some(Separator::Or),
+            "AND" => Some(Separator::And),
+            "OR" => Some(Separator::Or),
             _ => None
         }
     }
