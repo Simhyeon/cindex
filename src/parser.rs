@@ -1,4 +1,4 @@
-use crate::models::{Query, Predicate, Operator, Separator};
+use crate::{models::{Query, Predicate, Operator, Separator, OrderType}, CIndexResult};
 
 pub struct Parser { 
     cursor: ParseCursor,
@@ -11,6 +11,7 @@ pub struct ParseState {
     raw_column_names: Option<String>,
     where_args: Vec<String>,
     joined: Option<Vec<String>>,
+    order_by: Vec<String>,
 }
 
 #[derive(PartialEq)]
@@ -20,6 +21,7 @@ pub enum ParseCursor {
     Select,
     Where,
     Join,
+    OrderBy(bool)
 }
 
 pub enum WhereCursor {
@@ -36,7 +38,7 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self, query: &str) -> Query {
+    pub fn parse(&mut self, query: &str) -> CIndexResult<Query> {
         let mut split = query.split(' ');
 
         // SELECT columns FROM TABLE WHERE arguments
@@ -51,6 +53,11 @@ impl Parser {
         let columns = std::mem::replace(&mut self.state.raw_column_names,None);
         let predicates = self.get_predicates();
         let joined = std::mem::replace(&mut self.state.joined,None);
+        let order_type = if self.state.order_by.len() >= 2 {
+            OrderType::from_str(&self.state.order_by[1],&self.state.order_by[0])?
+        } else {
+            OrderType::None
+        };
 
         // Split 
         let columns = if let Some(raw) = columns {
@@ -59,7 +66,7 @@ impl Parser {
             None
         };
 
-        Query::new(table_name,columns,predicates, joined)
+        Ok(Query::new(table_name,columns,predicates, joined, order_type))
     }
 
     fn set_cursor(&mut self, arg: &str) -> bool {
@@ -68,6 +75,14 @@ impl Parser {
             "where" => ParseCursor::Where,
             "from" => ParseCursor::From,
             "join" => ParseCursor::Join,
+            "order" => ParseCursor::OrderBy(false),
+            "by" => {
+                if self.cursor == ParseCursor::OrderBy(false) {
+                    ParseCursor::OrderBy(true)
+                } else {
+                    ParseCursor::None
+                }
+            }
             _ => ParseCursor::None,
         };
 
@@ -97,6 +112,9 @@ impl Parser {
                 // This is safe to use unwrap 
                 self.state.joined.as_mut().unwrap().push(arg.to_owned());
                 self.cursor = ParseCursor::None;
+            }
+            ParseCursor::OrderBy(true) => {
+                self.state.order_by.push(arg.to_owned());
             }
             _ => {}
         }
