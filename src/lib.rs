@@ -70,6 +70,35 @@
 /// let mut acc = String::new();
 /// indexer.index(query, OutOption::Value(&mut acc)).expect("Failed to index a table");
 /// ```
+///
+/// # Query
+///
+/// Cindex's query syntax is similar to SQL but has some small differences.
+/// 
+/// ```SQL
+/// /* Select everythig from given table*/
+/// SELECT * FROM table1
+/// 
+/// /* Select everything from given table and order by column with descending
+/// order*/
+/// SELECT * FROM table1 ORDER BY col1 DESC
+/// 
+/// /* Select given columns from table where column's value is equal to given
+/// condition and also other column's value matches regex expression */
+/// SELECT col1,col2 FROM table1 WHERE col1 = 10 AND col2 LIKE ^start
+/// ```
+///
+/// ```
+///  >= 
+///  >
+///  <=
+///  <
+///  =
+///  !=
+///  IN ( enumerate )
+///  BETWEEN (inclusive range of min & max)
+///  LIKE ( with regeular expression )
+/// ```
 
 mod indexer;
 #[cfg(test)]
