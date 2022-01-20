@@ -103,7 +103,7 @@ Supported WHERE operations are
  !=
  IN
  BETWEEN
- LIKE ( with **regeular expression** )
+ LIKE ( with regeular expression )
 ```
 
 # TODO
