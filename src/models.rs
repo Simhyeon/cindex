@@ -49,7 +49,7 @@ impl CsvTable {
         #[cfg(not(feature = "rayon"))]
         let iter = self.rows.iter();
 
-        let queried : Vec<_> = iter.filter_map(|row| {
+        let mut queried : Vec<_> = iter.filter_map(|row| {
             match row.filter(&self.headers,&predicates) {
                 Ok(boolean) => {
                     if boolean { Some(row) } else { None }
@@ -60,6 +60,32 @@ impl CsvTable {
                 },
             } 
         }).collect();
+
+        match &query.order_type {
+            OrderType::None => (),
+            OrderType::Asec(col) => {
+                if let Some(index) = self.headers.get_index_of(col.as_str()) {
+                    queried.sort_by(|a,b| {
+                        let a = CsvVariant::from_data(&a.data[index]).unwrap();
+                        let b = CsvVariant::from_data(&b.data[index]).unwrap();
+                        a.partial_cmp(&b).unwrap()
+                    });
+                } else {
+                    return Err(CIndexError::InvalidQueryStatement(format!("Column \"{}\" doesn't exist", col)))
+                }
+            },
+            OrderType::Desc(col) => {
+                if let Some(index) = self.headers.get_index_of(col.as_str()) {
+                    queried.sort_by(|a,b| {
+                        let a = CsvVariant::from_data(&a.data[index]).unwrap();
+                        let b = CsvVariant::from_data(&b.data[index]).unwrap();
+                        b.partial_cmp(&a).unwrap()
+                    });
+                } else {
+                    return Err(CIndexError::InvalidQueryStatement(format!("Column \"{}\" doesn't exist", col)))
+                }
+            },
+        } 
 
         Ok(queried)
     }
@@ -185,23 +211,9 @@ impl CsvData {
             panic!();
         }
 
-        let (var, arg) = match self.data_type {
-            CsvType::Null => (CsvVariant::Null,CsvVariant::Null),
-            CsvType::Text => (CsvVariant::Text(&self.value), CsvVariant::Text(&args[0])),
-            CsvType::Integer => {
-                (
-                    CsvVariant::Integer(self.value.parse().map_err(|_| CIndexError::TypeDiscord(format!("{} as integer", self.value)))?),
-                    CsvVariant::Integer(args[0].parse().map_err(|_| CIndexError::TypeDiscord(format!("{} as integer", args[0])))?),
-                )
-            },
-            CsvType::Float => {
-                (
-                    CsvVariant::Float(self.value.parse().map_err(|_| CIndexError::TypeDiscord(format!("{} as float", self.value)))?),
-                    CsvVariant::Float(args[0].parse().map_err(|_| CIndexError::TypeDiscord(format!("{} as float", args[0])))?),
-                )
-            },
-            CsvType::BLOB => (CsvVariant::BLOB(self.value.as_bytes()), CsvVariant::BLOB(&args[0].as_bytes())),
-        };
+        let var = CsvVariant::from_data(&self)?;
+        let arg_data = CsvData::new(self.data_type, &args[0])?;
+        let arg = CsvVariant::from_data(&arg_data)?;
 
         let result = match operation {
             Operator::Like => {
@@ -228,14 +240,10 @@ impl CsvData {
                 var != arg
             },
             Operator::In => {
-                // TODO
-                //args.contains(&self.value)
-                true
+                args.contains(&self.value)
             },
             Operator::Between => {
-                // TODO
-                //self.value >= args[0] && self.value <= args[1]
-                true
+                self.value >= args[0] && self.value <= args[1]
             },
         };
 
@@ -287,7 +295,40 @@ impl<'var> CsvVariant<'var> {
             Self::Integer(num) => num.to_string(),
         }
     }
+
+    fn from_data(data: &'var CsvData) -> CIndexResult<Self> {
+        let variant = match data.data_type {
+            CsvType::Null => CsvVariant::Null,
+            CsvType::Text => CsvVariant::Text(&data.value),
+            CsvType::Integer => {
+                CsvVariant::Integer(data.value.parse().map_err(|_| CIndexError::TypeDiscord(format!("{} as integer", data.value)))?)
+            },
+            CsvType::Float => {
+                CsvVariant::Float(data.value.parse().map_err(|_| CIndexError::TypeDiscord(format!("{} as float", data.value)))?)
+            },
+            CsvType::BLOB => CsvVariant::BLOB(data.value.as_bytes()),
+        };
+
+        Ok(variant)
+    }
 }
+
+#[derive(Debug)]
+pub enum OrderType {
+    None,
+    Asec(String),
+    Desc(String),
+}
+
+impl OrderType {
+    pub fn from_str(text: &str, column: &str) -> CIndexResult<Self> {
+        match text.to_lowercase().as_str() {
+            "asec" => Ok(Self::Asec(column.to_string())),
+            "desc" => Ok(Self::Desc(column.to_string())),
+            _ => return Err(CIndexError::InvalidQueryStatement(format!("Ordertype can only be ASEC OR DESC but given \"{}\"", text)))
+        }
+    }
+} 
 
 /// Query to index a table
 #[derive(Debug)]
@@ -295,6 +336,7 @@ pub struct Query {
     pub table_name: String,
     pub column_names: Option<Vec<String>>,
     predicates: Option<Vec<Predicate>>,
+    order_type: OrderType,
     
     // TODO
     // Currently join is not supported
@@ -303,7 +345,7 @@ pub struct Query {
 }
 
 impl Query {
-    pub fn from_str(query: &str) -> Self {
+    pub fn from_str(query: &str) -> CIndexResult<Self> {
         Parser::new().parse(query)
     }
 
@@ -312,6 +354,7 @@ impl Query {
             table_name: table_name.to_owned(), 
             column_names: None,
             predicates: None,
+            order_type: OrderType::None,
             joined_tables: None,
         }
     }
@@ -322,6 +365,7 @@ impl Query {
             column_names: None,
             predicates: None,
             joined_tables: None,
+            order_type: OrderType::None,
         }
     }
 
@@ -339,12 +383,13 @@ impl Query {
         self
     }
 
-    pub fn new(table_name: String, column_names: Option<Vec<String>>,predicates: Option<Vec<Predicate>>, joined_tables: Option<Vec<String>>) -> Self {
+    pub fn new(table_name: String, column_names: Option<Vec<String>>,predicates: Option<Vec<Predicate>>, joined_tables: Option<Vec<String>>, order_type: OrderType) -> Self {
         Self {
             table_name,
             column_names,
             predicates,
             joined_tables,
+            order_type,
         }
     }
 }
