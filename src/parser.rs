@@ -9,7 +9,7 @@ pub struct Parser {
 pub struct ParseState {
     table_name: String,
     raw_column_names: Option<String>,
-    column_map: Option<Vec<String>>,
+    raw_column_map: Option<String>,
     where_args: Vec<String>,
     joined: Option<Vec<String>>,
     order_by: Vec<String>,
@@ -61,7 +61,7 @@ impl Parser {
             OrderType::None
         };
 
-        let column_map = std::mem::replace(&mut self.state.column_map,None);
+        let column_map = std::mem::replace(&mut self.state.raw_column_map,None).map(|s| s.split(',').map(|s| s.to_owned()).collect::<Vec<String>>());
 
         // Split 
         let columns = if let Some(raw) = columns {
@@ -122,11 +122,11 @@ impl Parser {
                 self.state.order_by.push(arg.to_owned());
             }
             ParseCursor::Hmap => {
-                if self.state.column_map == None {
-                    self.state.column_map.replace(vec![]);
+                if self.state.raw_column_map == None {
+                    self.state.raw_column_map.replace(String::new());
                 }
                 let arg = arg.replace("_"," ");
-                self.state.column_map.as_mut().unwrap().push(arg);
+                self.state.raw_column_map.as_mut().unwrap().push_str(&arg);
             }
             _ => {}
         }
