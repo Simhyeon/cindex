@@ -4,12 +4,13 @@ use std::collections::HashMap;
 #[cfg(feature = "rayon")]
 use rayon::prelude::*;
 
-use crate::{CIndexResult, CIndexError};
+use crate::{CIndexResult, CIndexError, consts};
 use crate::models::{CsvType, CsvTable, Query};
 
 /// Entry struct for indexing csv tables
 pub struct Indexer {
     print_header: bool,
+    always_unix_newline: bool,
     tables: HashMap<String, CsvTable>,
 }
 
@@ -18,6 +19,7 @@ impl Indexer {
     pub fn new() -> Self {
         Self {
             print_header: true,
+            always_unix_newline: false,
             tables: HashMap::new(),
         }
     }
@@ -25,6 +27,19 @@ impl Indexer {
     /// Decide whether header to be printed or not
     pub fn set_print_header(&mut self, tv: bool) {
         self.print_header = tv;
+    }
+
+    /// Always use unix newline for formatting
+    pub fn always_use_unix_newline(&mut self, tv:bool) {
+        self.always_unix_newline = tv;
+    }
+
+    fn get_newline(&self) -> &str {
+        if self.always_unix_newline {
+            "\n"
+        } else {
+            consts::LINE_ENDING
+        }
     }
 
     /// Add table without header
@@ -103,19 +118,19 @@ impl Indexer {
             let columns = query.column_names.unwrap_or(vec!["*".to_owned()]);
             if columns[0] == "*" {
                 let headers = table.headers.iter().map(|s| s.as_str()).collect::<Vec<&str>>();
-                self.write(&(headers.join(",") + "\n"), &mut out_option)?;
+                self.write(&(headers.join(",") + self.get_newline()), &mut out_option)?;
             } else {
                 let map = query.column_map.unwrap_or(vec![]);
                 let columns = map.iter().chain(columns[map.len()..].iter()).map(|s| s.as_str()).collect::<Vec<&str>>().join(",");
-                self.write(&(columns + "\n"), &mut out_option)?;
+                self.write(&(columns + self.get_newline()), &mut out_option)?;
             }
         }
 
         while let Some(&row) = rows_iter.next() {
             let row_string = if let Some(cols) = &columns {
-                row.column_splited(cols) + "\n"
+                row.column_splited(cols) + self.get_newline()
             } else {
-                row.to_string() + "\n"
+                row.to_string() + self.get_newline()
             };
             self.write(&row_string, &mut out_option)?;
         }
