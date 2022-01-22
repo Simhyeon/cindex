@@ -74,6 +74,9 @@ indexer.index(query, OutOption::Value(&mut acc))
 
 // Disable header print if you want
 indexer.set_print_header(false);
+
+// Always use unix newline for formatting
+indexer.always_use_unix_newline(true);
 ```
 # Query syntax
 
