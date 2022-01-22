@@ -87,6 +87,14 @@ SELECT * FROM table1
 order*/
 SELECT * FROM table1 ORDER BY col1 DESC
 
+/* Same with previous commands but map header result */
+SELECT * FROM table1 ORDER BY col1 DESC HMAP new_h,new_h2,new_h3
+
+/* -> Previous query result header with underbar substituted with whitespaces
+new h,new h2,new h3
+<-- Content goes here -->
+ */
+
 /* Select given columns from table where column's value is equal to given
 condition and also other column's value matches regex expression */
 SELECT col1,col2 FROM table1 WHERE col1 = 10 AND col2 LIKE ^start

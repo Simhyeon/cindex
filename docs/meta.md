@@ -18,6 +18,7 @@ coded...
 	* [x] Search with custom columns
 	* [ ] Search with joined tabled
 
+* [x] COLUMN mapping
 * [ ] Join functionality
 * [ ] <OR> variant for predicate
 - Currently all predicate are ALL variant
