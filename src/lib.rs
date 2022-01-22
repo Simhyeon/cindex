@@ -69,6 +69,12 @@
 /// 
 /// let mut acc = String::new();
 /// indexer.index(query, OutOption::Value(&mut acc)).expect("Failed to index a table");
+///
+/// // Disable header print if you want
+/// indexer.set_print_header(false);
+///
+/// // Always use unix newline for formatting
+/// indexer.always_use_unix_newline(true);
 /// ```
 ///
 /// # Query
@@ -82,6 +88,14 @@
 /// /* Select everything from given table and order by column with descending
 /// order*/
 /// SELECT * FROM table1 ORDER BY col1 DESC
+///
+/// /* Same with previous commands but map headers into custom values */
+/// SELECT * FROM table1 ORDER BY col1 DESC HMAP new_h,new_h2,new_h3
+/// 
+/// /* -> Previous query result header with underbar substituted with whitespaces
+/// new h,new h2,new h3
+/// <-- Content goes here -->
+///  */
 /// 
 /// /* Select given columns from table where column's value is equal to given
 /// condition and also other column's value matches regex expression */
@@ -106,6 +120,7 @@ mod test;
 pub mod models;
 mod parser;
 mod error;
+mod consts;
 
 pub use indexer::{Indexer, OutOption};
 pub use models::{CsvType, Predicate, Operator, Query};
