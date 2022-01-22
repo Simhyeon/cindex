@@ -106,9 +106,6 @@ impl Indexer {
                 self.write(&(headers.join(",") + "\n"), &mut out_option)?;
             } else {
                 let map = query.column_map.unwrap_or(vec![]);
-                //println!("MAPP :: {:?}", map);
-                //let columns = columns.splice(..map.len(), map).collect::<Vec<_>>();
-                //println!("NEW COL : {:#?}", columns);
                 let columns = map.iter().chain(columns[map.len()..].iter()).map(|s| s.as_str()).collect::<Vec<&str>>().join(",");
                 self.write(&(columns + "\n"), &mut out_option)?;
             }

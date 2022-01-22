@@ -23,7 +23,7 @@ pub enum ParseCursor {
     Where,
     Join,
     OrderBy(bool),
-    Map,
+    Hmap,
 }
 
 pub enum WhereCursor {
@@ -79,7 +79,7 @@ impl Parser {
             "where" => ParseCursor::Where,
             "from" => ParseCursor::From,
             "join" => ParseCursor::Join,
-            "map" => ParseCursor::Map,
+            "hmap" => ParseCursor::Hmap,
             "order" => ParseCursor::OrderBy(false),
             "by" => {
                 if self.cursor == ParseCursor::OrderBy(false) {
@@ -121,7 +121,7 @@ impl Parser {
             ParseCursor::OrderBy(true) => {
                 self.state.order_by.push(arg.to_owned());
             }
-            ParseCursor::Map => {
+            ParseCursor::Hmap => {
                 if self.state.column_map == None {
                     self.state.column_map.replace(vec![]);
                 }
