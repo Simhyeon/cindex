@@ -9,6 +9,7 @@ pub struct Parser {
 pub struct ParseState {
     table_name: String,
     raw_column_names: Option<String>,
+    column_map: Option<Vec<String>>,
     where_args: Vec<String>,
     joined: Option<Vec<String>>,
     order_by: Vec<String>,
@@ -21,7 +22,8 @@ pub enum ParseCursor {
     Select,
     Where,
     Join,
-    OrderBy(bool)
+    OrderBy(bool),
+    Map,
 }
 
 pub enum WhereCursor {
@@ -39,7 +41,7 @@ impl Parser {
     }
 
     pub fn parse(&mut self, query: &str) -> CIndexResult<Query> {
-        let mut split = query.split(' ');
+        let mut split = query.split_whitespace();
 
         // SELECT columns FROM TABLE WHERE arguments
         while let Some(word) = split.next() {
@@ -59,6 +61,8 @@ impl Parser {
             OrderType::None
         };
 
+        let column_map = std::mem::replace(&mut self.state.column_map,None);
+
         // Split 
         let columns = if let Some(raw) = columns {
             Some(raw.split(',').map(|v| v.trim().to_owned()).collect())
@@ -66,7 +70,7 @@ impl Parser {
             None
         };
 
-        Ok(Query::new(table_name,columns,predicates, joined, order_type))
+        Ok(Query::new(table_name,columns,predicates, joined, order_type, column_map))
     }
 
     fn set_cursor(&mut self, arg: &str) -> bool {
@@ -75,6 +79,7 @@ impl Parser {
             "where" => ParseCursor::Where,
             "from" => ParseCursor::From,
             "join" => ParseCursor::Join,
+            "map" => ParseCursor::Map,
             "order" => ParseCursor::OrderBy(false),
             "by" => {
                 if self.cursor == ParseCursor::OrderBy(false) {
@@ -102,7 +107,7 @@ impl Parser {
                     self.state.raw_column_names.replace(String::new());
                 }
                 // This is safe to use unwrap 
-                self.state.raw_column_names.as_mut().unwrap().push_str(arg);
+                self.state.raw_column_names.as_mut().unwrap().push_str(&format!("{} ", arg));
             }
             ParseCursor::Where => {self.state.where_args.push(arg.to_owned());}
             ParseCursor::Join => {
@@ -115,6 +120,13 @@ impl Parser {
             }
             ParseCursor::OrderBy(true) => {
                 self.state.order_by.push(arg.to_owned());
+            }
+            ParseCursor::Map => {
+                if self.state.column_map == None {
+                    self.state.column_map.replace(vec![]);
+                }
+                let arg = arg.replace("_"," ");
+                self.state.column_map.as_mut().unwrap().push(arg);
             }
             _ => {}
         }

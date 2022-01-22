@@ -335,6 +335,7 @@ impl OrderType {
 pub struct Query {
     pub table_name: String,
     pub column_names: Option<Vec<String>>,
+    pub column_map: Option<Vec<String>>,
     predicates: Option<Vec<Predicate>>,
     order_type: OrderType,
     
@@ -356,6 +357,7 @@ impl Query {
             predicates: None,
             order_type: OrderType::None,
             joined_tables: None,
+            column_map: None,
         }
     }
 
@@ -366,6 +368,7 @@ impl Query {
             predicates: None,
             joined_tables: None,
             order_type: OrderType::None,
+            column_map: None,
         }
     }
 
@@ -383,13 +386,21 @@ impl Query {
         self
     }
 
-    pub fn new(table_name: String, column_names: Option<Vec<String>>,predicates: Option<Vec<Predicate>>, joined_tables: Option<Vec<String>>, order_type: OrderType) -> Self {
+    pub fn new(
+        table_name: String,
+        column_names: Option<Vec<String>>,
+        predicates: Option<Vec<Predicate>>,
+        joined_tables: Option<Vec<String>>,
+        order_type: OrderType,
+        column_map: Option<Vec<String>>
+    ) -> Self {
         Self {
             table_name,
             column_names,
             predicates,
             joined_tables,
             order_type,
+            column_map
         }
     }
 }
