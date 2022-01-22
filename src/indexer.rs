@@ -83,7 +83,7 @@ impl Indexer {
 
         let filtered_rows = table.query(&query)?;
         let mut rows_iter = filtered_rows.iter();
-        let columns: Option<Vec<usize>> = if let Some(cols) = query.column_names {
+        let columns: Option<Vec<usize>> = if let Some(ref cols) = query.column_names {
             if cols.len() > 0 && cols[0] == "*" { None }
             else {
                 #[cfg(feature = "rayon")]
@@ -100,11 +100,17 @@ impl Indexer {
 
         // Print headers
         if self.print_header {
-            if let Some(cols) = &columns {
-                // Print headers
-                self.write(&(self.header_splited(&table, &cols) + "\n"), &mut out_option)?;
-            } else { // print normal headers
-                self.write(&(table.headers.iter().map(|s| s.as_str()).collect::<Vec<&str>>().join(",") + "\n"), &mut out_option)?;
+            let columns = query.column_names.unwrap_or(vec!["*".to_owned()]);
+            if columns[0] == "*" {
+                let headers = table.headers.iter().map(|s| s.as_str()).collect::<Vec<&str>>();
+                self.write(&(headers.join(",") + "\n"), &mut out_option)?;
+            } else {
+                let map = query.column_map.unwrap_or(vec![]);
+                //println!("MAPP :: {:?}", map);
+                //let columns = columns.splice(..map.len(), map).collect::<Vec<_>>();
+                //println!("NEW COL : {:#?}", columns);
+                let columns = map.iter().chain(columns[map.len()..].iter()).map(|s| s.as_str()).collect::<Vec<&str>>().join(",");
+                self.write(&(columns + "\n"), &mut out_option)?;
             }
         }
 
@@ -117,22 +123,6 @@ impl Indexer {
             self.write(&row_string, &mut out_option)?;
         }
         Ok(())
-    }
-
-    fn header_splited(&self, table : &CsvTable, columns: &Vec<usize>) -> String {
-        let mut col_iter = columns.iter();
-        let mut formatted = String::new();
-
-        // First item
-        if let Some(col) = col_iter.next() {
-            formatted.push_str(&table.headers[*col].to_string());
-        }
-
-        while let Some(col) = col_iter.next() {
-            formatted.push(',');
-            formatted.push_str(&table.headers[*col].to_string());
-        }
-        formatted
     }
 
     fn write(&self, content: &str, out_option: &mut OutOption) -> CIndexResult<()> {
