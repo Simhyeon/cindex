@@ -20,7 +20,7 @@ mod tests {
         // Indexing
 
         // Create query object and print output to terminal
-        let query = Query::from_str("SELECT a,b,c FROM table1 ORDER BY a DESC WHERE c IN 111 333 224 MAP 첫_첫 둘_둘 셋_셋")?;
+        let query = Query::from_str("SELECT * FROM table1 ORDER BY a DESC WHERE c IN 111 333 224 HMAP 첫_첫,둘_둘,셋_셋")?;
         println!("{:#?}", query);
         indexer.index(query, OutOption::Term)?;
 

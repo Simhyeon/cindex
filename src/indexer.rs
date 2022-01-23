@@ -116,14 +116,26 @@ impl Indexer {
         // Print headers
         if self.print_header {
             let columns = query.column_names.unwrap_or(vec!["*".to_owned()]);
+            let map = query.column_map.unwrap_or(vec![]);
+            let mapped_columns : String;
             if columns[0] == "*" {
-                let headers = table.headers.iter().map(|s| s.as_str()).collect::<Vec<&str>>();
-                self.write(&(headers.join(",") + self.get_newline()), &mut out_option)?;
+                let headers = table.headers
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect::<Vec<String>>();
+                mapped_columns = map.iter()
+                    .chain(headers[map.len()..].iter())
+                    .map(|s| s.as_str())
+                    .collect::<Vec<&str>>().join(",");
             } else {
-                let map = query.column_map.unwrap_or(vec![]);
-                let columns = map.iter().chain(columns[map.len()..].iter()).map(|s| s.as_str()).collect::<Vec<&str>>().join(",");
-                self.write(&(columns + self.get_newline()), &mut out_option)?;
+                mapped_columns = map.iter()
+                    .chain(columns[map.len()..].iter())
+                    .map(|s| s.as_str())
+                    .collect::<Vec<&str>>()
+                    .join(",");
             }
+
+            self.write(&(mapped_columns + self.get_newline()), &mut out_option)?;
         }
 
         while let Some(&row) = rows_iter.next() {
