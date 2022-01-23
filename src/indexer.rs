@@ -69,14 +69,14 @@ impl Indexer {
 
             headers = header_types_iter.zip(header_lines_iter).take(len).map(|(value,t)| (t.to_owned(), *value)).collect();
         } else {
-            panic!("No header option is not supported");
+            return Err(CIndexError::InvalidTableInput(format!("No header option is not supported")));
         }
 
         for line in lines {
             let row: Vec<&str> = line.split(',').collect();
 
             if row.len() != headers.len() {
-                panic!("Row's length is different from header's length ");
+                return Err(CIndexError::InvalidTableInput(format!("Row's length \"{}\" is different from header's length \"{}\"", row.len(), headers.len())));
             }
 
             rows.push(row);

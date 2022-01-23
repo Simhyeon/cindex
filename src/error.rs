@@ -4,6 +4,8 @@ pub type CIndexResult<T> = Result<T, CIndexError>;
 
 #[derive(Debug, Error)]
 pub enum CIndexError {
+    #[error("Invalid csv table\n= {0}")]
+    InvalidTableInput(String),
     #[error("IO Error\n= {0}")]
     IoError(std::io::Error),
     #[error("Invalid table name\n= {0}")]
