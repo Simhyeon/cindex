@@ -42,6 +42,11 @@ impl Indexer {
         }
     }
 
+    /// Drop table
+    pub fn drop_table(&mut self, table_name: &str) {
+        self.tables.remove(table_name);
+    }
+
     /// Add table without header
     pub fn add_table_fast(&mut self, table_name: &str, input: impl Read) -> CIndexResult<()>{
         self.add_table(table_name, vec![], input)
