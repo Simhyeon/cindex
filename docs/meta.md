@@ -2,8 +2,11 @@
 
 * [ ] Join functionality
 * [ ] <OR> variant for predicate
-- Currently all predicate are ALL variant
+- Currently all predicate are AND variant
 * [ ] Datetime
+* [ ] Evaluation process would be useful
+* [x] Droptable
+* [x] Contains
 
 ### DONE
 

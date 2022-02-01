@@ -42,6 +42,11 @@ impl Indexer {
         }
     }
 
+    /// Check if indexer contains table
+    pub fn contains_table(&self, table_name: &str) -> bool {
+        self.tables.contains_key(table_name)
+    }
+
     /// Drop table
     pub fn drop_table(&mut self, table_name: &str) {
         self.tables.remove(table_name);
