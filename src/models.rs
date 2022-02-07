@@ -31,7 +31,7 @@ impl Table {
         })
     }
 
-    pub fn query(&self, query: &Query) -> CIndexResult<Vec<&Row>> {
+    pub(crate) fn query(&self, query: &Query) -> CIndexResult<Vec<&Row>> {
         let boilerplate = vec![];
         let predicates = if let Some(pre) = query.predicates.as_ref() {
             for item in pre {
@@ -103,7 +103,7 @@ impl Display for Table {
 }
 
 #[derive(Debug)]
-pub struct Row {
+pub(crate) struct Row {
     data: Vec<Data>,
 }
 
@@ -151,24 +151,32 @@ impl Row {
         self.data.iter().map(|d| d.value.as_str()).collect()
     }
 
-    pub fn column_splited(&self, columns: &Vec<usize>) -> Vec<&str> {
+    pub fn column_splited(&self, columns: &Vec<ColumnIndex>) -> Vec<&str> {
         let mut col_iter = columns.iter();
         let mut formatted = vec![];
 
         // First item
         if let Some(col) = col_iter.next() {
-            formatted.push(self.data[*col].value.as_str());
+            if let ColumnIndex::Real(index) = col {
+                formatted.push(self.data[*index].value.as_str());
+            } else {
+                formatted.push("");
+            }
         }
 
         while let Some(col) = col_iter.next() {
-            formatted.push(self.data[*col].value.as_str());
+            if let ColumnIndex::Real(index) = col {
+                formatted.push(self.data[*index].value.as_str());
+            } else {
+                formatted.push("");
+            }
         }
         formatted
     }
 }
 
 #[derive(Debug)]
-pub struct Data {
+pub(crate) struct Data {
     data_type : CsvType,
     value: String,
 }
@@ -252,11 +260,6 @@ impl Data {
 
         Ok(result)
     }
-
-    /// Get variant from value
-    pub fn get_variant(&self) -> CIndexResult<Variant> {
-        Variant::from_data(self)
-    }
 }
 
 /// CSV data Type
@@ -285,7 +288,7 @@ impl CsvType {
 ///
 /// This enables various comparsion operation as single enum value.
 #[derive(Clone,Debug, PartialEq, PartialOrd)]
-pub enum Variant<'var> {
+pub(crate) enum Variant<'var> {
     Null, 
     Text(&'var str),
     Integer(i32),
@@ -525,4 +528,9 @@ impl Operator {
 pub enum Separator {
     And,
     Or,
+}
+
+pub enum ColumnIndex {
+    Real(usize),
+    Supplement,
 }

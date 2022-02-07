@@ -6,9 +6,9 @@ mod tests {
     use crate::models::Operator;
 
     #[test]
-    fn it_works() -> CIndexResult<()> {
-
+    fn test_function() -> CIndexResult<()> {
         let mut indexer = Indexer::new();
+
 
         // Add table without types
         // Default types for every columns are "Text"
@@ -19,9 +19,9 @@ mod tests {
 
         // Indexing
 
+        indexer.set_supplement(true);
         // Create query object and print output to terminal
-        let query = Query::from_str("SELECT * FROM table1 ORDER BY a DESC WHERE c IN 111 333 224 HMAP 첫_첫,둘_둘,셋_셋")?;
-        println!("{:#?}", query);
+        let query = Query::from_str("SELECT c,b,a,d,e FROM table1 ORDER BY a DESC WHERE c IN 111 333 224 ")?;
         indexer.index(query, OutOption::Term)?;
 
         Ok(())

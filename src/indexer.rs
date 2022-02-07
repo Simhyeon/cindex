@@ -4,13 +4,14 @@ use std::collections::HashMap;
 #[cfg(feature = "rayon")]
 use rayon::prelude::*;
 
-use crate::{CIndexResult, CIndexError, consts, Row};
-use crate::models::{CsvType, Table, Query};
+use crate::{CIndexResult, CIndexError, consts};
+use crate::models::{CsvType, Table, Query, ColumnIndex};
 
 /// Entry struct for indexing csv tables
 pub struct Indexer {
     print_header: bool,
     always_unix_newline: bool,
+    supplement: bool,
     tables: HashMap<String, Table>,
 }
 
@@ -20,6 +21,7 @@ impl Indexer {
         Self {
             print_header: true,
             always_unix_newline: false,
+            supplement: false,
             tables: HashMap::new(),
         }
     }
@@ -27,6 +29,10 @@ impl Indexer {
     /// Decide whether header to be printed or not
     pub fn set_print_header(&mut self, tv: bool) {
         self.print_header = tv;
+    }
+
+    pub fn set_supplement(&mut self, tv:bool) {
+        self.supplement = tv;
     }
 
     /// Always use unix newline for formatting
@@ -126,7 +132,7 @@ impl Indexer {
         let table = self.tables.get(query.table_name.as_str()).ok_or(CIndexError::InvalidTableName(format!("Table \"{}\" doesn't exist", query.table_name)))?;
         let queried_records = table.query(&query)?;
 
-        let target_columns: Option<Vec<usize>> = if let Some(ref cols) = query.column_names {
+        let target_columns: Option<Vec<ColumnIndex>> = if let Some(ref cols) = query.column_names {
             if cols.len() > 0 && cols[0] == "*" { None }
             else {
                 #[cfg(feature = "rayon")]
@@ -134,10 +140,26 @@ impl Indexer {
                 #[cfg(not(feature = "rayon"))]
                 let iter = cols.iter();
 
-                let collection : Result<Vec<usize>,CIndexError> = iter.map(|i| -> Result<usize, CIndexError> {
-                    Ok(table.headers.get_index_of(i).ok_or(CIndexError::InvalidColumn(format!("No such column \"{}\"", i)))?)
-                }).collect();
-                Some(collection?)
+                // If supplement is given
+                // add extra columns
+                let collection: Vec<_> = if self.supplement {
+                    iter.map(|i| if let Some(index) = table.headers.get_index_of(i) {
+                        ColumnIndex::Real(index)
+                    } else {
+                        ColumnIndex::Supplement
+                    }).collect()
+                } else {
+                    iter.map(|i| -> Result<ColumnIndex, CIndexError> {
+                        let index = ColumnIndex::Real(table.headers.get_index_of(i).ok_or(CIndexError::InvalidColumn(format!("No such column \"{}\"", i)))?);
+                        Ok(index)
+                    }).collect::<CIndexResult<Vec<_>>>()?
+                };
+
+                //let collection : Result<Vec<usize>,CIndexError> = iter.map(|i| -> Result<usize, CIndexError> {
+                    //Ok(table.headers.get_index_of(i).ok_or(CIndexError::InvalidColumn(format!("No such column \"{}\"", i)))?)
+                //}).collect();
+
+                Some(collection)
             }
         } else { None };
 
