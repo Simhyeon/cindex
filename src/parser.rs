@@ -100,6 +100,7 @@ impl Parser {
     }
 
     fn update_state(&mut self, arg: &str) {
+        let arg = self.without_dquotes(arg);
         match self.cursor {
             ParseCursor::From => {self.state.table_name = arg.to_owned();}
             ParseCursor::Select => {
@@ -178,5 +179,9 @@ impl Parser {
             "OR" => Some(Separator::Or),
             _ => None
         }
+    }
+
+    fn without_dquotes(&self, src: &str) -> String {
+        src.replace('"', "")
     }
 }
