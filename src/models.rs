@@ -7,16 +7,16 @@ use crate::error::CIndexError;
 use indexmap::IndexSet;
 
 #[derive(Debug)]
-pub struct CsvTable {
+pub struct Table {
     pub(crate) headers: IndexSet<String>,
-    pub(crate) rows: Vec<CsvRow>,
+    pub(crate) rows: Vec<Row>,
 }
 
-impl CsvTable {
+impl Table {
     pub fn new(headers: Vec<(String, CsvType)>, rows: Vec<Vec<&str>>) -> CIndexResult<Self> {
         // Make this rayon compatible iterator
-        let rows : CIndexResult<Vec<CsvRow>> = rows.iter().map(|row| {
-            CsvRow::new(&headers, row)
+        let rows : CIndexResult<Vec<Row>> = rows.iter().map(|row| {
+            Row::new(&headers, row)
         }).collect();
 
         let mut header_set : IndexSet<String> = IndexSet::new();
@@ -31,7 +31,7 @@ impl CsvTable {
         })
     }
 
-    pub fn query(&self, query: &Query) -> CIndexResult<Vec<&CsvRow>> {
+    pub fn query(&self, query: &Query) -> CIndexResult<Vec<&Row>> {
         let boilerplate = vec![];
         let predicates = if let Some(pre) = query.predicates.as_ref() {
             for item in pre {
@@ -66,8 +66,8 @@ impl CsvTable {
             OrderType::Asec(col) => {
                 if let Some(index) = self.headers.get_index_of(col.as_str()) {
                     queried.sort_by(|a,b| {
-                        let a = CsvVariant::from_data(&a.data[index]).unwrap();
-                        let b = CsvVariant::from_data(&b.data[index]).unwrap();
+                        let a = Variant::from_data(&a.data[index]).unwrap();
+                        let b = Variant::from_data(&b.data[index]).unwrap();
                         a.partial_cmp(&b).unwrap()
                     });
                 } else {
@@ -77,8 +77,8 @@ impl CsvTable {
             OrderType::Desc(col) => {
                 if let Some(index) = self.headers.get_index_of(col.as_str()) {
                     queried.sort_by(|a,b| {
-                        let a = CsvVariant::from_data(&a.data[index]).unwrap();
-                        let b = CsvVariant::from_data(&b.data[index]).unwrap();
+                        let a = Variant::from_data(&a.data[index]).unwrap();
+                        let b = Variant::from_data(&b.data[index]).unwrap();
                         b.partial_cmp(&a).unwrap()
                     });
                 } else {
@@ -91,7 +91,7 @@ impl CsvTable {
     }
 }
 
-impl Display for CsvTable {
+impl Display for Table {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}\n",self.headers.iter().map(|s| s.as_str()).collect::<Vec<&str>>().join(","))?;
 
@@ -103,22 +103,22 @@ impl Display for CsvTable {
 }
 
 #[derive(Debug)]
-pub struct CsvRow {
-    data: Vec<CsvData>,
+pub struct Row {
+    data: Vec<Data>,
 }
 
-impl Display for CsvRow {
+impl Display for Row {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.data.iter().map(|datum| datum.value.as_str()).collect::<Vec<&str>>().join(","))
     }
 } 
 
-impl CsvRow {
+impl Row {
     pub fn new(headers: &Vec<(String, CsvType)>, row: &Vec<&str>) -> CIndexResult<Self> {
-        let mut data : Vec<CsvData> = Vec::new();
+        let mut data : Vec<Data> = Vec::new();
         // Check index of headers and type check
         for (index, &item) in row.iter().enumerate() {
-            data.push(CsvData::new(headers[index].1,item)?);
+            data.push(Data::new(headers[index].1,item)?);
         }
 
         Ok(Self { data })
@@ -165,18 +165,18 @@ impl CsvRow {
 }
 
 #[derive(Debug)]
-pub struct CsvData {
+pub struct Data {
     data_type : CsvType,
     value: String,
 }
 
-impl Display for CsvData {
+impl Display for Data {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f,"{}", self.value)
     }
 }
 
-impl CsvData {
+impl Data {
     pub fn new(data_type: CsvType, value: &str) -> CIndexResult<Self> {
         let data = Self {
             data_type,
@@ -211,9 +211,9 @@ impl CsvData {
             panic!();
         }
 
-        let var = CsvVariant::from_data(&self)?;
-        let arg_data = CsvData::new(self.data_type, &args[0])?;
-        let arg = CsvVariant::from_data(&arg_data)?;
+        let var = Variant::from_data(&self)?;
+        let arg_data = Data::new(self.data_type, &args[0])?;
+        let arg = Variant::from_data(&arg_data)?;
 
         let result = match operation {
             Operator::Like => {
@@ -251,8 +251,8 @@ impl CsvData {
     }
 
     /// Get variant from value
-    pub fn get_variant(&self) -> CIndexResult<CsvVariant> {
-        CsvVariant::from_data(self)
+    pub fn get_variant(&self) -> CIndexResult<Variant> {
+        Variant::from_data(self)
     }
 }
 
@@ -282,7 +282,7 @@ impl CsvType {
 ///
 /// This enables various comparsion operation as single enum value.
 #[derive(Clone,Debug, PartialEq, PartialOrd)]
-pub enum CsvVariant<'var> {
+pub enum Variant<'var> {
     Null, 
     Text(&'var str),
     Integer(i32),
@@ -290,7 +290,7 @@ pub enum CsvVariant<'var> {
     BLOB(&'var [u8]),
 }
 
-impl<'var> CsvVariant<'var> {
+impl<'var> Variant<'var> {
     fn as_string(&self) -> String {
         match self {
             Self::Null => String::new(),
@@ -301,17 +301,17 @@ impl<'var> CsvVariant<'var> {
         }
     }
 
-    pub fn from_data(data: &'var CsvData) -> CIndexResult<Self> {
+    pub fn from_data(data: &'var Data) -> CIndexResult<Self> {
         let variant = match data.data_type {
-            CsvType::Null => CsvVariant::Null,
-            CsvType::Text => CsvVariant::Text(&data.value),
+            CsvType::Null => Variant::Null,
+            CsvType::Text => Variant::Text(&data.value),
             CsvType::Integer => {
-                CsvVariant::Integer(data.value.parse().map_err(|_| CIndexError::TypeDiscord(format!("{} as integer", data.value)))?)
+                Variant::Integer(data.value.parse().map_err(|_| CIndexError::TypeDiscord(format!("{} as integer", data.value)))?)
             },
             CsvType::Float => {
-                CsvVariant::Float(data.value.parse().map_err(|_| CIndexError::TypeDiscord(format!("{} as float", data.value)))?)
+                Variant::Float(data.value.parse().map_err(|_| CIndexError::TypeDiscord(format!("{} as float", data.value)))?)
             },
-            CsvType::BLOB => CsvVariant::BLOB(data.value.as_bytes()),
+            CsvType::BLOB => Variant::BLOB(data.value.as_bytes()),
         };
 
         Ok(variant)

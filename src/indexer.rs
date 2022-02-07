@@ -5,13 +5,13 @@ use std::collections::HashMap;
 use rayon::prelude::*;
 
 use crate::{CIndexResult, CIndexError, consts};
-use crate::models::{CsvType, CsvTable, Query};
+use crate::models::{CsvType, Table, Query};
 
 /// Entry struct for indexing csv tables
 pub struct Indexer {
     print_header: bool,
     always_unix_newline: bool,
-    tables: HashMap<String, CsvTable>,
+    tables: HashMap<String, Table>,
 }
 
 impl Indexer {
@@ -92,7 +92,7 @@ impl Indexer {
             rows.push(row);
         }
 
-        self.tables.insert(table_name.to_owned(), CsvTable::new(headers, rows)?);
+        self.tables.insert(table_name.to_owned(), Table::new(headers, rows)?);
         Ok(())
     }
 

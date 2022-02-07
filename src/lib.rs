@@ -123,5 +123,5 @@ mod error;
 mod consts;
 
 pub use indexer::{Indexer, OutOption};
-pub use models::{CsvType, Predicate, Operator, Query};
+pub use models::{CsvType, Predicate, Operator, Query, Row, Data, Variant};
 pub use error::{CIndexError, CIndexResult};
