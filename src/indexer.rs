@@ -4,7 +4,7 @@ use std::collections::HashMap;
 #[cfg(feature = "rayon")]
 use rayon::prelude::*;
 
-use crate::{CIndexResult, CIndexError, consts};
+use crate::{CIndexResult, CIndexError, consts, Row};
 use crate::models::{CsvType, Table, Query};
 
 /// Entry struct for indexing csv tables
@@ -108,7 +108,7 @@ impl Indexer {
 
         let filtered_rows = table.query(&query)?;
         let mut rows_iter = filtered_rows.iter();
-        let columns: Option<Vec<usize>> = if let Some(ref cols) = query.column_names {
+        let target_columns: Option<Vec<usize>> = if let Some(ref cols) = query.column_names {
             if cols.len() > 0 && cols[0] == "*" { None }
             else {
                 #[cfg(feature = "rayon")]
@@ -149,7 +149,7 @@ impl Indexer {
         }
 
         while let Some(&row) = rows_iter.next() {
-            let row_string = if let Some(cols) = &columns {
+            let row_string = if let Some(cols) = &target_columns {
                 row.column_splited(cols) + self.get_newline()
             } else {
                 row.to_string() + self.get_newline()
@@ -157,6 +157,13 @@ impl Indexer {
             self.write(&row_string, &mut out_option)?;
         }
         Ok(())
+    }
+
+    /// Get rows filtered by query
+    pub fn get_indexed_rows(&self, query: Query) -> CIndexResult<Vec<&Row>> {
+        let table = self.tables.get(query.table_name.as_str()).ok_or(CIndexError::InvalidTableName(format!("Table \"{}\" doesn't exist", query.table_name)))?;
+
+        table.query(&query)
     }
 
     fn write(&self, content: &str, out_option: &mut OutOption) -> CIndexResult<()> {
