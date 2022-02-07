@@ -147,18 +147,21 @@ impl Row {
         Ok(failed.len() == 0)
     }
 
-    pub fn column_splited(&self, columns: &Vec<usize>) -> String {
+    pub fn splited(&self) -> Vec<&str> {
+        self.data.iter().map(|d| d.value.as_str()).collect()
+    }
+
+    pub fn column_splited(&self, columns: &Vec<usize>) -> Vec<&str> {
         let mut col_iter = columns.iter();
-        let mut formatted = String::new();
+        let mut formatted = vec![];
 
         // First item
         if let Some(col) = col_iter.next() {
-            formatted.push_str(&self.data[*col].to_string());
+            formatted.push(self.data[*col].value.as_str());
         }
 
         while let Some(col) = col_iter.next() {
-            formatted.push(',');
-            formatted.push_str(&self.data[*col].to_string());
+            formatted.push(self.data[*col].value.as_str());
         }
         formatted
     }
