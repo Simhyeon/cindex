@@ -249,6 +249,11 @@ impl CsvData {
 
         Ok(result)
     }
+
+    /// Get variant from value
+    pub fn get_variant(&self) -> CIndexResult<CsvVariant> {
+        CsvVariant::from_data(self)
+    }
 }
 
 /// CSV data Type
@@ -296,7 +301,7 @@ impl<'var> CsvVariant<'var> {
         }
     }
 
-    fn from_data(data: &'var CsvData) -> CIndexResult<Self> {
+    pub fn from_data(data: &'var CsvData) -> CIndexResult<Self> {
         let variant = match data.data_type {
             CsvType::Null => CsvVariant::Null,
             CsvType::Text => CsvVariant::Text(&data.value),

@@ -5,8 +5,6 @@
 - Currently all predicate are AND variant
 * [ ] Datetime
 * [ ] Evaluation process would be useful
-* [x] Droptable
-* [x] Contains
 
 ### DONE
 
@@ -20,3 +18,5 @@
 * [x] Order by
 * [x] Possibly windows "\r\n" option
 * [x] COLUMN mapping
+* [x] Droptable
+* [x] Contains
