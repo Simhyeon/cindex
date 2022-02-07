@@ -104,10 +104,28 @@ impl Indexer {
 
     /// Index with pre-built query
     pub fn index(&self, query: Query, mut out_option: OutOption) -> CIndexResult<()> {
-        let table = self.tables.get(query.table_name.as_str()).ok_or(CIndexError::InvalidTableName(format!("Table \"{}\" doesn't exist", query.table_name)))?;
+        let mut output_header = String::new();
+        let records = self.index_table(query, &mut output_header)?;
+        
+        self.write(&(output_header + self.get_newline()), &mut out_option)?;
 
-        let filtered_rows = table.query(&query)?;
-        let mut rows_iter = filtered_rows.iter();
+        for row in records {
+            self.write(&(row.join(",") + self.get_newline()), &mut out_option)?;
+        }
+        Ok(())
+    }
+
+    /// Get rows filtered by query
+    pub fn index_get_records(&self, query: Query) -> CIndexResult<Vec<Vec<&str>>> {
+        let records = self.index_table(query, &mut String::new())?;
+        Ok(records)
+    }
+
+    /// Internal function
+    fn index_table(&self, query: Query, output_header: &mut String) -> CIndexResult<Vec<Vec<&str>>> {
+        let table = self.tables.get(query.table_name.as_str()).ok_or(CIndexError::InvalidTableName(format!("Table \"{}\" doesn't exist", query.table_name)))?;
+        let queried_records = table.query(&query)?;
+
         let target_columns: Option<Vec<usize>> = if let Some(ref cols) = query.column_names {
             if cols.len() > 0 && cols[0] == "*" { None }
             else {
@@ -127,43 +145,36 @@ impl Indexer {
         if self.print_header {
             let columns = query.column_names.unwrap_or(vec!["*".to_owned()]);
             let map = query.column_map.unwrap_or(vec![]);
-            let mapped_columns : String;
             if columns[0] == "*" {
                 let headers = table.headers
                     .iter()
                     .map(|s| s.to_string())
                     .collect::<Vec<String>>();
-                mapped_columns = map.iter()
+                *output_header = map.iter()
                     .chain(headers[map.len()..].iter())
                     .map(|s| s.as_str())
                     .collect::<Vec<&str>>().join(",");
             } else {
-                mapped_columns = map.iter()
+                *output_header = map.iter()
                     .chain(columns[map.len()..].iter())
                     .map(|s| s.as_str())
                     .collect::<Vec<&str>>()
                     .join(",");
             }
-
-            self.write(&(mapped_columns + self.get_newline()), &mut out_option)?;
         }
+        let mut mapped_records = vec![];
 
-        while let Some(&row) = rows_iter.next() {
-            let row_string = if let Some(cols) = &target_columns {
-                row.column_splited(cols) + self.get_newline()
+        let mut records_iter = queried_records.iter();
+
+        while let Some(&row) = records_iter.next() {
+            if let Some(cols) = &target_columns {
+                mapped_records.push(row.column_splited(cols))
             } else {
-                row.to_string() + self.get_newline()
+                mapped_records.push(row.splited())
             };
-            self.write(&row_string, &mut out_option)?;
         }
-        Ok(())
-    }
 
-    /// Get rows filtered by query
-    pub fn get_indexed_rows(&self, query: Query) -> CIndexResult<Vec<&Row>> {
-        let table = self.tables.get(query.table_name.as_str()).ok_or(CIndexError::InvalidTableName(format!("Table \"{}\" doesn't exist", query.table_name)))?;
-
-        table.query(&query)
+        Ok(mapped_records)
     }
 
     fn write(&self, content: &str, out_option: &mut OutOption) -> CIndexResult<()> {
