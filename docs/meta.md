@@ -5,11 +5,11 @@
 - Currently all predicate are AND variant
 * [ ] Datetime
 * [ ] Evaluation process would be useful
-* [ ] Padding
-	* [ ] Add new syntax MUST
-	* [x] Add new function for getting raw records
-* [ ] Support quote rule
-	- "select" as ok column
+* [x] Set a default order by option for ergonomics
+* [x] Supplment syntax
+* [x] More ergonomic print header syntax
+* [x] Support quote rule
+	- Kinda..., It simply removes all double quotes on real operation
 ### DONE
 
 * [x] In and between support for raw query
