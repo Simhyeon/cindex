@@ -1,4 +1,4 @@
-use crate::{models::{Query, Predicate, Operator, Separator, OrderType}, CIndexResult};
+use crate::{models::{Query, Predicate, Operator, Separator, OrderType, QueryFlags}, CIndexResult};
 
 pub struct Parser { 
     cursor: ParseCursor,
@@ -13,6 +13,7 @@ pub struct ParseState {
     where_args: Vec<String>,
     joined: Option<Vec<String>>,
     order_by: Vec<String>,
+    flags: QueryFlags,
 }
 
 #[derive(PartialEq)]
@@ -24,6 +25,7 @@ pub enum ParseCursor {
     Join,
     OrderBy(bool),
     Hmap,
+    Flag,
 }
 
 pub enum WhereCursor {
@@ -47,7 +49,7 @@ impl Parser {
         while let Some(word) = split.next() {
             // If no cursor change, then
             if !self.set_cursor(word) {
-                self.update_state(word);
+                self.update_state(word)?;
             }
         }
 
@@ -55,10 +57,11 @@ impl Parser {
         let columns = std::mem::replace(&mut self.state.raw_column_names,None);
         let predicates = self.get_predicates();
         let joined = std::mem::replace(&mut self.state.joined,None);
-        let order_type = if self.state.order_by.len() >= 2 {
-            OrderType::from_str(&self.state.order_by[1],&self.state.order_by[0])?
-        } else {
-            OrderType::None
+        let order_type = match self.state.order_by.len() {
+            2 => OrderType::from_str(&self.state.order_by[1],&self.state.order_by[0])?,
+            1 => OrderType::from_str(&self.state.order_by[1], "ASEC")?, // Default ordering is ASEC
+            len if len > 2 => OrderType::from_str(&self.state.order_by[1],&self.state.order_by[0])?,
+            _ => OrderType::None,
         };
 
         let column_map = std::mem::replace(&mut self.state.raw_column_map,None).map(|s| s.split(',').map(|s| s.to_owned()).collect::<Vec<String>>());
@@ -70,7 +73,7 @@ impl Parser {
             None
         };
 
-        Ok(Query::new(table_name,columns,predicates, joined, order_type, column_map))
+        Ok(Query::new(table_name,columns,predicates, joined, order_type, column_map, self.state.flags))
     }
 
     fn set_cursor(&mut self, arg: &str) -> bool {
@@ -88,6 +91,7 @@ impl Parser {
                     ParseCursor::None
                 }
             }
+            "flag" => ParseCursor::Flag,
             _ => ParseCursor::None,
         };
 
@@ -99,7 +103,7 @@ impl Parser {
         }
     }
 
-    fn update_state(&mut self, arg: &str) {
+    fn update_state(&mut self, arg: &str) -> CIndexResult<()> {
         let arg = self.without_dquotes(arg);
         match self.cursor {
             ParseCursor::From => {self.state.table_name = arg.to_owned();}
@@ -129,8 +133,10 @@ impl Parser {
                 let arg = arg.replace("_"," ");
                 self.state.raw_column_map.as_mut().unwrap().push_str(&arg);
             }
+            ParseCursor::Flag => { self.state.flags.set_str(&arg)?; }
             _ => {}
         }
+        Ok(())
     }
 
     // Inner parse predicate arguments

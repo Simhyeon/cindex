@@ -3,45 +3,32 @@ use std::{io::Read, fs::File};
 use std::collections::HashMap;
 #[cfg(feature = "rayon")]
 use rayon::prelude::*;
-
 use crate::{CIndexResult, CIndexError, consts};
-use crate::models::{CsvType, Table, Query, ColumnIndex};
+use crate::models::{CsvType, Table, Query, ColumnIndex, QueryFlags};
 
 /// Entry struct for indexing csv tables
 pub struct Indexer {
-    print_header: bool,
-    always_unix_newline: bool,
-    supplement: bool,
     tables: HashMap<String, Table>,
+    use_unix_newline: bool,
 }
 
 impl Indexer {
     /// Create new indexer
     pub fn new() -> Self {
         Self {
-            print_header: true,
-            always_unix_newline: false,
-            supplement: false,
+            use_unix_newline: false,
             tables: HashMap::new(),
         }
     }
 
-    /// Decide whether header to be printed or not
-    pub fn set_print_header(&mut self, tv: bool) {
-        self.print_header = tv;
-    }
-
-    pub fn set_supplement(&mut self, tv:bool) {
-        self.supplement = tv;
-    }
-
     /// Always use unix newline for formatting
     pub fn always_use_unix_newline(&mut self, tv:bool) {
-        self.always_unix_newline = tv;
+        self.use_unix_newline = tv;
     }
 
+    /// Return newline with unix newline option considered
     fn get_newline(&self) -> &str {
-        if self.always_unix_newline {
+        if self.use_unix_newline {
             "\n"
         } else {
             consts::LINE_ENDING
@@ -142,7 +129,8 @@ impl Indexer {
 
                 // If supplement is given
                 // add extra columns
-                let collection: Vec<_> = if self.supplement {
+                let supplement = query.flags.contains(QueryFlags::SUP);
+                let collection: Vec<_> = if supplement {
                     iter.map(|i| if let Some(index) = table.headers.get_index_of(i) {
                         ColumnIndex::Real(index)
                     } else {
@@ -155,16 +143,12 @@ impl Indexer {
                     }).collect::<CIndexResult<Vec<_>>>()?
                 };
 
-                //let collection : Result<Vec<usize>,CIndexError> = iter.map(|i| -> Result<usize, CIndexError> {
-                    //Ok(table.headers.get_index_of(i).ok_or(CIndexError::InvalidColumn(format!("No such column \"{}\"", i)))?)
-                //}).collect();
-
                 Some(collection)
             }
         } else { None };
 
         // Print headers
-        if self.print_header {
+        if query.flags.contains(QueryFlags::PHD) {
             let columns = query.column_names.unwrap_or(vec!["*".to_owned()]);
             let map = query.column_map.unwrap_or(vec![]);
             if columns[0] == "*" {

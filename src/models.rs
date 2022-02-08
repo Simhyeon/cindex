@@ -5,6 +5,7 @@ use rayon::prelude::*;
 use regex::Regex;
 use crate::error::CIndexError;
 use indexmap::IndexSet;
+use bitflags::bitflags;
 
 #[derive(Debug)]
 pub struct Table {
@@ -349,6 +350,7 @@ pub struct Query {
     pub column_map: Option<Vec<String>>,
     predicates: Option<Vec<Predicate>>,
     order_type: OrderType,
+    pub flags: QueryFlags,
     
     // TODO
     // Currently join is not supported
@@ -369,6 +371,7 @@ impl Query {
             order_type: OrderType::None,
             joined_tables: None,
             column_map: None,
+            flags: QueryFlags::empty(),
         }
     }
 
@@ -380,6 +383,7 @@ impl Query {
             joined_tables: None,
             order_type: OrderType::None,
             column_map: None,
+            flags: QueryFlags::empty(),
         }
     }
 
@@ -403,7 +407,8 @@ impl Query {
         predicates: Option<Vec<Predicate>>,
         joined_tables: Option<Vec<String>>,
         order_type: OrderType,
-        column_map: Option<Vec<String>>
+        column_map: Option<Vec<String>>,
+        flags: QueryFlags,
     ) -> Self {
         Self {
             table_name,
@@ -411,7 +416,8 @@ impl Query {
             predicates,
             joined_tables,
             order_type,
-            column_map
+            column_map,
+            flags,
         }
     }
 }
@@ -534,3 +540,33 @@ pub enum ColumnIndex {
     Real(usize),
     Supplement,
 }
+
+bitflags! {
+    pub struct QueryFlags: u32 {
+        const PHD = 0b00000001;
+        const SUP = 0b00000100;
+    }
+}
+
+impl Default for QueryFlags {
+    fn default() -> Self {
+        Self::empty()
+    }
+}
+
+impl QueryFlags {
+    /// Clear all bit flags
+    pub fn clear(&mut self) {
+        self.bits = 0;  
+    }
+
+    pub fn set_str(&mut self, flag: &str) -> CIndexResult<()> {
+        match flag.to_lowercase().as_str() {
+            "phd" | "print-header" => self.set(QueryFlags::PHD, true),
+            "sup" | "supplment" => self.set(QueryFlags::SUP, true),
+            _ => return Err(CIndexError::InvalidQueryStatement(format!("Invalid query flag"))),
+        }
+        Ok(())
+    }
+}
+

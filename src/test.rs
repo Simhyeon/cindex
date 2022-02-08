@@ -19,10 +19,10 @@ mod tests {
 
         // Indexing
 
-        indexer.set_supplement(true);
         // Create query object and print output to terminal
-        let query = Query::from_str("SELECT c,b,a,d,e FROM table1 ORDER BY a DESC WHERE c IN 111 333 224 ")?;
+        let query = Query::from_str(r#"SELECT c,b,a,d,e FROM table1 ORDER BY a DESC WHERE c IN 111 333 224 FLAG SUP PHD"#)?;
         indexer.index(query, OutOption::Term)?;
+        indexer.index(Query::from_str("SELECT * FROM table1 ORDER BY a ASEC FLAG PHD")?, OutOption::Term)?;
 
         Ok(())
     }
