@@ -201,7 +201,7 @@ impl Indexer {
 
     fn write(&self, content: &str, out_option: &mut OutOption) -> CIndexResult<()> {
         match out_option {
-            OutOption::Term => print!("{}", content),
+            OutOption::Term => std::io::stdout().write_all(content.as_bytes())?,
             OutOption::File(file) => file.write_all(content.as_bytes())?,
             OutOption::Value(target) => target.push_str(content),
         }
