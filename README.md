@@ -72,9 +72,6 @@ let mut acc = String::new();
 indexer.index(query, OutOption::Value(&mut acc))
 	.expect("Failed to index a table");
 
-// Disable header print if you want
-indexer.set_print_header(false);
-
 // Always use unix newline for formatting
 indexer.always_use_unix_newline(true);
 ```
@@ -101,6 +98,14 @@ new h,new h2,new h3
 /* Select given columns from table where column's value is equal to given
 condition and also other column's value matches regex expression */
 SELECT col1,col2 FROM table1 WHERE col1 = 10 AND col2 LIKE ^start
+
+/* There is a flag syntax which changes query behaviour*/
+SELECT * FROM table_name FLAG PHD SUP
+
+/* In this case each flag does next operation
+  - PHD (PRINT-HEADER) : Print header in result output
+  - SUP (SUPPLEMENT)   : Enable selection of non-existent column with empty values
+ */
 ```
 
 Supported WHERE operations are
