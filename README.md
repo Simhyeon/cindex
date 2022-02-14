@@ -56,7 +56,7 @@ indexer
         "table2",
         vec![CsvType::Text, CsvType::Text],
         "id,address
-222"
+abc,111-2222"
             .as_bytes(),
     )
     .expect("Failed to add table");
