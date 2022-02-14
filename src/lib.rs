@@ -1,5 +1,3 @@
-mod consts;
-mod error;
 /// # Cindex, a csv indexer
 ///
 /// Cindex is a easy to use csv indexer with SQL-like simple query support.
@@ -20,60 +18,70 @@ mod error;
 /// ```no_run
 /// use std::fs::File;
 /// use cindex::{Indexer, CsvType, Predicate, Query, OutOption, Operator};
-///
+/// 
 /// let mut indexer = Indexer::new();
-///
+/// 
 /// // Add table without types
 /// // Default types for every columns are "Text"
-/// indexer.add_table_fast(
-///     "table1",
-///     File::open("test.csv").expect("Failed to open a file")
-/// ).expect("Failed to add table");
-///
+/// indexer
+///     .add_table_fast(
+///         "table1",
+///         File::open("test.csv").expect("Failed to open a file"),
+///     )
+///     .expect("Failed to add table");
+/// 
 /// // Add table with column types
-/// indexer.add_table(
-///     "table2",
-///     vec![CsvType::Text, CsvType::Text],
-///     "id,address
-/// 10,110-2222".as_bytes()
-/// ).expect("Failed to add table");
-///
+/// indexer
+///     .add_table(
+///         "table2",
+///         vec![CsvType::Text, CsvType::Text],
+///         "id,address
+/// abc,111-2222"
+///             .as_bytes(),
+///     )
+///     .expect("Failed to add table");
+/// 
 /// // Add table from stdin
 /// let stdin = std::io::stdin();
-/// indexer.add_table_fast(
-///     "table3",
-///     stdin.lock()
-/// ).expect("Failed to add table");
-///
+/// indexer
+///     .add_table_fast("table3", stdin.lock())
+///     .expect("Failed to add table");
+/// 
 /// // Indexing
-///
+/// 
 /// // Create query object and print output to terminal
-/// let query = Query::from_str("SELECT a,b,c FROM table1 WHERE a = 10").expect("Failed to create query");
-/// indexer.index(query, OutOption::Term).expect("Failed to index a table");
-///
+/// let query = Query::from_str("SELECT a,b,c FROM table1 WHERE a = 10");
+/// indexer
+///     .index(query, OutOption::Term)
+///     .expect("Failed to index a table");
+/// 
 /// // Use raw query and yield output to a file
-/// indexer.index_raw(
-///     "SELECT * FROM table3 WHERE id = 10",
-///     OutOption::File(std::fs::File::create("out.csv").expect("Failed to create a file"))
-/// ).expect("Failed to index a table");
-///
+/// indexer
+///     .index_raw(
+///         "SELECT * FROM table3 WHERE id = 10",
+///         OutOption::File(std::fs::File::create("out.csv").expect("Failed to create a file")),
+///     )
+///     .expect("Failed to index a table");
+/// 
 /// // Use builder pattern to construct query and index a table
 /// let query = Query::empty("table2")
 ///     .columns(vec!["id", "address"])
-///     .predicate(Predicate::new("id", Operator::Equal)
-///         .args(vec!["10"])
-///     )
-///     .predicate(Predicate::build()
-///         .column("address")
-///         .operator(Operator::NotEqual)
-///         .raw_args("111-2222")
+///     .predicate(Predicate::new("id", Operator::Equal).args(vec!["10"]))
+///     .predicate(
+///         Predicate::build()
+///             .column("address")
+///             .operator(Operator::NotEqual)
+///             .raw_args("111-2222"),
 ///     );
-///
+/// 
 /// let mut acc = String::new();
-/// indexer.index(query, OutOption::Value(&mut acc)).expect("Failed to index a table");
-///
+/// indexer
+///     .index(query, OutOption::Value(&mut acc))
+///     .expect("Failed to index a table");
+/// 
 /// // Always use unix newline for formatting
 /// indexer.always_use_unix_newline(true);
+/// 
 /// ```
 ///
 /// # Query
@@ -121,6 +129,8 @@ mod error;
 ///  BETWEEN (inclusive range of min & max)
 ///  LIKE ( with regeular expression )
 /// ```
+mod consts;
+mod error;
 mod indexer;
 pub mod models;
 mod parser;
