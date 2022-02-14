@@ -6,6 +6,26 @@ Cindex is not intended for heavy database indexing but for simple in-memory
 querying. Use other databases interaction layer if you're using big chunks of
 csv files.
 
+Binary to be added soon.
+
+# Features
+
+**Read csv file as string table**
+
+No mmap, no bufstream no nothing. If 'read' is ok, then table content is ok
+through the whole indexing.
+
+**Index csv table with SQL-like query**
+
+Sometimes you want raw way to index table and get raw value from it. Just pipe
+csv table to other programs and maybe with an optional csv header.
+
+**Human friendly csv reading**
+
+Writing csv values by hand is not so trivial yet there are some cases when you
+have to. Missing values can be allowed with cindex, even missing columns can be
+allowed with specific FLAG syntax. Missing comma, is not allowed though.
+
 # Usage
 
 ```toml
