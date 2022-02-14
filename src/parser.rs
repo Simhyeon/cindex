@@ -1,6 +1,9 @@
-use crate::{models::{Query, Predicate, Operator, Separator, OrderType, QueryFlags}, CIndexResult};
+use crate::{
+    models::{Operator, OrderType, Predicate, Query, QueryFlags, Separator},
+    CIndexResult,
+};
 
-pub struct Parser { 
+pub struct Parser {
     cursor: ParseCursor,
     state: ParseState,
 }
@@ -53,32 +56,43 @@ impl Parser {
             }
         }
 
-        let table_name = std::mem::replace(&mut self.state.table_name,String::new());
-        let columns = std::mem::replace(&mut self.state.raw_column_names,None);
+        let table_name = std::mem::replace(&mut self.state.table_name, String::new());
+        let columns = std::mem::replace(&mut self.state.raw_column_names, None);
         let predicates = self.get_predicates();
-        let joined = std::mem::replace(&mut self.state.joined,None);
+        let joined = std::mem::replace(&mut self.state.joined, None);
         let order_type = match self.state.order_by.len() {
-            2 => OrderType::from_str(&self.state.order_by[1],&self.state.order_by[0])?,
+            2 => OrderType::from_str(&self.state.order_by[1], &self.state.order_by[0])?,
             1 => OrderType::from_str(&self.state.order_by[1], "ASEC")?, // Default ordering is ASEC
-            len if len > 2 => OrderType::from_str(&self.state.order_by[1],&self.state.order_by[0])?,
+            len if len > 2 => {
+                OrderType::from_str(&self.state.order_by[1], &self.state.order_by[0])?
+            }
             _ => OrderType::None,
         };
 
-        let column_map = std::mem::replace(&mut self.state.raw_column_map,None).map(|s| s.split(',').map(|s| s.to_owned()).collect::<Vec<String>>());
+        let column_map = std::mem::replace(&mut self.state.raw_column_map, None)
+            .map(|s| s.split(',').map(|s| s.to_owned()).collect::<Vec<String>>());
 
-        // Split 
+        // Split
         let columns = if let Some(raw) = columns {
             Some(raw.split(',').map(|v| v.trim().to_owned()).collect())
         } else {
             None
         };
 
-        Ok(Query::new(table_name,columns,predicates, joined, order_type, column_map, self.state.flags))
+        Ok(Query::new(
+            table_name,
+            columns,
+            predicates,
+            joined,
+            order_type,
+            column_map,
+            self.state.flags,
+        ))
     }
 
     fn set_cursor(&mut self, arg: &str) -> bool {
         let candidate = match arg.to_lowercase().as_str() {
-            "select" => ParseCursor::Select, 
+            "select" => ParseCursor::Select,
             "where" => ParseCursor::Where,
             "from" => ParseCursor::From,
             "join" => ParseCursor::Join,
@@ -106,20 +120,28 @@ impl Parser {
     fn update_state(&mut self, arg: &str) -> CIndexResult<()> {
         let arg = self.without_dquotes(arg);
         match self.cursor {
-            ParseCursor::From => {self.state.table_name = arg.to_owned();}
+            ParseCursor::From => {
+                self.state.table_name = arg.to_owned();
+            }
             ParseCursor::Select => {
                 if self.state.raw_column_names == None {
                     self.state.raw_column_names.replace(String::new());
                 }
-                // This is safe to use unwrap 
-                self.state.raw_column_names.as_mut().unwrap().push_str(&format!("{} ", arg));
+                // This is safe to use unwrap
+                self.state
+                    .raw_column_names
+                    .as_mut()
+                    .unwrap()
+                    .push_str(&format!("{} ", arg));
             }
-            ParseCursor::Where => {self.state.where_args.push(arg.to_owned());}
+            ParseCursor::Where => {
+                self.state.where_args.push(arg.to_owned());
+            }
             ParseCursor::Join => {
                 if self.state.joined == None {
                     self.state.joined.replace(vec![]);
                 }
-                // This is safe to use unwrap 
+                // This is safe to use unwrap
                 self.state.joined.as_mut().unwrap().push(arg.to_owned());
                 self.cursor = ParseCursor::None;
             }
@@ -130,10 +152,12 @@ impl Parser {
                 if self.state.raw_column_map == None {
                     self.state.raw_column_map.replace(String::new());
                 }
-                let arg = arg.replace("_"," ");
+                let arg = arg.replace("_", " ");
                 self.state.raw_column_map.as_mut().unwrap().push_str(&arg);
             }
-            ParseCursor::Flag => { self.state.flags.set_str(&arg)?; }
+            ParseCursor::Flag => {
+                self.state.flags.set_str(&arg)?;
+            }
             _ => {}
         }
         Ok(())
@@ -147,14 +171,16 @@ impl Parser {
 
         for token in &self.state.where_args {
             if let Some(sep) = self.find_separator(token) {
-                if !p.column.is_empty() {predicates.push(p);}
+                if !p.column.is_empty() {
+                    predicates.push(p);
+                }
 
                 // Reset predicate and where cursor
                 // for next iteration
                 p = Predicate::build();
                 w_cursor = WhereCursor::Left;
 
-                p.set_separator(sep); 
+                p.set_separator(sep);
                 continue;
             }
 
@@ -162,19 +188,21 @@ impl Parser {
                 WhereCursor::Left => {
                     p.set_column(token);
                     w_cursor = WhereCursor::Operator;
-                },
+                }
                 WhereCursor::Operator => {
                     p.set_operator(Operator::from_token(token));
                     w_cursor = WhereCursor::Right;
-                },
+                }
                 WhereCursor::Right => {
                     p.add_arg(token);
-                },
-            } 
+                }
+            }
         }
 
         // Add a lastly created predicated into vector
-        if !p.column.is_empty() {predicates.push(p);}
+        if !p.column.is_empty() {
+            predicates.push(p);
+        }
 
         Some(predicates)
     }
@@ -183,7 +211,7 @@ impl Parser {
         match token {
             "AND" => Some(Separator::And),
             "OR" => Some(Separator::Or),
-            _ => None
+            _ => None,
         }
     }
 

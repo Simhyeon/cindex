@@ -1,11 +1,11 @@
-use std::fmt::Display;
+use crate::error::CIndexError;
 use crate::{parser::Parser, CIndexResult};
+use bitflags::bitflags;
+use indexmap::IndexSet;
 #[cfg(feature = "rayon")]
 use rayon::prelude::*;
 use regex::Regex;
-use crate::error::CIndexError;
-use indexmap::IndexSet;
-use bitflags::bitflags;
+use std::fmt::Display;
 
 #[derive(Debug)]
 pub struct Table {
@@ -16,13 +16,11 @@ pub struct Table {
 impl Table {
     pub fn new(headers: Vec<(String, CsvType)>, rows: Vec<Vec<&str>>) -> CIndexResult<Self> {
         // Make this rayon compatible iterator
-        let rows : CIndexResult<Vec<Row>> = rows.iter().map(|row| {
-            Row::new(&headers, row)
-        }).collect();
+        let rows: CIndexResult<Vec<Row>> = rows.iter().map(|row| Row::new(&headers, row)).collect();
 
-        let mut header_set : IndexSet<String> = IndexSet::new();
+        let mut header_set: IndexSet<String> = IndexSet::new();
 
-        for (header,_) in headers.iter() {
+        for (header, _) in headers.iter() {
             header_set.insert(header.to_owned());
         }
 
@@ -37,11 +35,16 @@ impl Table {
         let predicates = if let Some(pre) = query.predicates.as_ref() {
             for item in pre {
                 if !self.headers.contains(&item.column) {
-                    return Err(CIndexError::InvalidColumn(format!("Failed to get column \"{}\" from header", item.column)));
+                    return Err(CIndexError::InvalidColumn(format!(
+                        "Failed to get column \"{}\" from header",
+                        item.column
+                    )));
                 }
             }
             pre
-        } else { &boilerplate };
+        } else {
+            &boilerplate
+        };
 
         // TODO
         // Can it be improved?
@@ -50,43 +53,53 @@ impl Table {
         #[cfg(not(feature = "rayon"))]
         let iter = self.rows.iter();
 
-        let mut queried : Vec<_> = iter.filter_map(|row| {
-            match row.filter(&self.headers,&predicates) {
+        let mut queried: Vec<_> = iter
+            .filter_map(|row| match row.filter(&self.headers, &predicates) {
                 Ok(boolean) => {
-                    if boolean { Some(row) } else { None }
-                },
+                    if boolean {
+                        Some(row)
+                    } else {
+                        None
+                    }
+                }
                 Err(err) => {
                     eprintln!("{}", err);
                     None
-                },
-            } 
-        }).collect();
+                }
+            })
+            .collect();
 
         match &query.order_type {
             OrderType::None => (),
             OrderType::Asec(col) => {
                 if let Some(index) = self.headers.get_index_of(col.as_str()) {
-                    queried.sort_by(|a,b| {
+                    queried.sort_by(|a, b| {
                         let a = Variant::from_data(&a.data[index]).unwrap();
                         let b = Variant::from_data(&b.data[index]).unwrap();
                         a.partial_cmp(&b).unwrap()
                     });
                 } else {
-                    return Err(CIndexError::InvalidQueryStatement(format!("Column \"{}\" doesn't exist", col)))
+                    return Err(CIndexError::InvalidQueryStatement(format!(
+                        "Column \"{}\" doesn't exist",
+                        col
+                    )));
                 }
-            },
+            }
             OrderType::Desc(col) => {
                 if let Some(index) = self.headers.get_index_of(col.as_str()) {
-                    queried.sort_by(|a,b| {
+                    queried.sort_by(|a, b| {
                         let a = Variant::from_data(&a.data[index]).unwrap();
                         let b = Variant::from_data(&b.data[index]).unwrap();
                         b.partial_cmp(&a).unwrap()
                     });
                 } else {
-                    return Err(CIndexError::InvalidQueryStatement(format!("Column \"{}\" doesn't exist", col)))
+                    return Err(CIndexError::InvalidQueryStatement(format!(
+                        "Column \"{}\" doesn't exist",
+                        col
+                    )));
                 }
-            },
-        } 
+            }
+        }
 
         Ok(queried)
     }
@@ -94,12 +107,20 @@ impl Table {
 
 impl Display for Table {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}\n",self.headers.iter().map(|s| s.as_str()).collect::<Vec<&str>>().join(","))?;
+        write!(
+            f,
+            "{}\n",
+            self.headers
+                .iter()
+                .map(|s| s.as_str())
+                .collect::<Vec<&str>>()
+                .join(",")
+        )?;
 
         for row in &self.rows {
-            write!(f, "{}\n",row)?;
+            write!(f, "{}\n", row)?;
         }
-        write!(f,"")
+        write!(f, "")
     }
 }
 
@@ -110,36 +131,47 @@ pub(crate) struct Row {
 
 impl Display for Row {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.data.iter().map(|datum| datum.value.as_str()).collect::<Vec<&str>>().join(","))
+        write!(
+            f,
+            "{}",
+            self.data
+                .iter()
+                .map(|datum| datum.value.as_str())
+                .collect::<Vec<&str>>()
+                .join(",")
+        )
     }
-} 
+}
 
 impl Row {
     pub fn new(headers: &Vec<(String, CsvType)>, row: &Vec<&str>) -> CIndexResult<Self> {
-        let mut data : Vec<Data> = Vec::new();
+        let mut data: Vec<Data> = Vec::new();
         // Check index of headers and type check
         for (index, &item) in row.iter().enumerate() {
-            data.push(Data::new(headers[index].1,item)?);
+            data.push(Data::new(headers[index].1, item)?);
         }
 
         Ok(Self { data })
     }
 
-    pub fn filter(&self, headers: &IndexSet<String>, predicates: &Vec<Predicate>) -> CIndexResult<bool> {
+    pub fn filter(
+        &self,
+        headers: &IndexSet<String>,
+        predicates: &Vec<Predicate>,
+    ) -> CIndexResult<bool> {
         #[cfg(feature = "rayon")]
         let iter = predicates.par_iter();
         #[cfg(not(feature = "rayon"))]
         let iter = predicates.iter();
 
-        let failed : Result<Vec<_>, CIndexError> = 
-            iter.map(|pre|
-                {
-                    // This is safe to unwrap because table's query method alwasy check if column
-                    // exists before filtering
-                    let target = &self.data[headers.get_index_of(&pre.column).unwrap()];
-                    target.operate(&pre.operation, &pre.arguments)
-                }
-            ).collect();
+        let failed: Result<Vec<_>, CIndexError> = iter
+            .map(|pre| {
+                // This is safe to unwrap because table's query method alwasy check if column
+                // exists before filtering
+                let target = &self.data[headers.get_index_of(&pre.column).unwrap()];
+                target.operate(&pre.operation, &pre.arguments)
+            })
+            .collect();
 
         let failed = failed?;
         let failed: Vec<_> = failed.iter().filter(|s| *s == &false).collect();
@@ -178,13 +210,13 @@ impl Row {
 
 #[derive(Debug)]
 pub(crate) struct Data {
-    data_type : CsvType,
+    data_type: CsvType,
     value: String,
 }
 
 impl Display for Data {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f,"{}", self.value)
+        write!(f, "{}", self.value)
     }
 }
 
@@ -201,23 +233,36 @@ impl Data {
 
     pub fn check_type(&self) -> CIndexResult<()> {
         match self.data_type {
-            CsvType::Null    => {
+            CsvType::Null => {
                 if !self.value.is_empty() {
-                    return Err(CIndexError::InvalidDataType(format!("Value \"{}\" is not NULL", self.value)));
+                    return Err(CIndexError::InvalidDataType(format!(
+                        "Value \"{}\" is not NULL",
+                        self.value
+                    )));
                 }
-            },
-            CsvType::Float   => {
-                self.value.parse::<f32>().map_err(|_| CIndexError::InvalidDataType(format!("Value \"{}\" is not a floating point number", self.value)))?;
-            },
+            }
+            CsvType::Float => {
+                self.value.parse::<f32>().map_err(|_| {
+                    CIndexError::InvalidDataType(format!(
+                        "Value \"{}\" is not a floating point number",
+                        self.value
+                    ))
+                })?;
+            }
             CsvType::Integer => {
-                self.value.parse::<i32>().map_err(|_| CIndexError::InvalidDataType(format!("Value \"{}\" is not an integer", self.value)))?;
-            },
+                self.value.parse::<i32>().map_err(|_| {
+                    CIndexError::InvalidDataType(format!(
+                        "Value \"{}\" is not an integer",
+                        self.value
+                    ))
+                })?;
+            }
             _ => (),
         }
         Ok(())
     }
 
-    pub fn operate(&self, operation : &Operator, args : &Vec<String>) -> CIndexResult<bool> {
+    pub fn operate(&self, operation: &Operator, args: &Vec<String>) -> CIndexResult<bool> {
         if args.len() < 1 {
             eprintln!("ERROR!");
             panic!();
@@ -230,33 +275,22 @@ impl Data {
         let result = match operation {
             Operator::Like => {
                 let arg = arg.as_string();
-                let matcher = Regex::new(&arg).map_err(|_|CIndexError::InvalidQueryStatement(format!("Could not make a regex statemtn from given value: \"{}\"", arg)))?;
+                let matcher = Regex::new(&arg).map_err(|_| {
+                    CIndexError::InvalidQueryStatement(format!(
+                        "Could not make a regex statemtn from given value: \"{}\"",
+                        arg
+                    ))
+                })?;
                 matcher.is_match(&var.as_string())
             }
-            Operator::Bigger => {
-                var > arg
-            },
-            Operator::BiggerOrEqual => {
-                var >= arg
-            },
-            Operator::Smaller => {
-                var < arg
-            },
-            Operator::SmallerOrEqual => { 
-                var <= arg
-            },
-            Operator::Equal => { 
-                var == arg
-            },
-            Operator::NotEqual => {
-                var != arg
-            },
-            Operator::In => {
-                args.contains(&self.value)
-            },
-            Operator::Between => {
-                self.value >= args[0] && self.value <= args[1]
-            },
+            Operator::Bigger => var > arg,
+            Operator::BiggerOrEqual => var >= arg,
+            Operator::Smaller => var < arg,
+            Operator::SmallerOrEqual => var <= arg,
+            Operator::Equal => var == arg,
+            Operator::NotEqual => var != arg,
+            Operator::In => args.contains(&self.value),
+            Operator::Between => self.value >= args[0] && self.value <= args[1],
         };
 
         Ok(result)
@@ -264,12 +298,12 @@ impl Data {
 }
 
 /// CSV data Type
-#[derive(Clone,Copy,Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum CsvType {
-    Null, 
-    Text, 
+    Null,
+    Text,
     Integer,
-    Float, 
+    Float,
     BLOB,
 }
 
@@ -285,12 +319,12 @@ impl CsvType {
     }
 }
 
-/// Wrapper around csvtyped data 
+/// Wrapper around csvtyped data
 ///
 /// This enables various comparsion operation as single enum value.
-#[derive(Clone,Debug, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub(crate) enum Variant<'var> {
-    Null, 
+    Null,
     Text(&'var str),
     Integer(i32),
     Float(f32),
@@ -312,12 +346,16 @@ impl<'var> Variant<'var> {
         let variant = match data.data_type {
             CsvType::Null => Variant::Null,
             CsvType::Text => Variant::Text(&data.value),
-            CsvType::Integer => {
-                Variant::Integer(data.value.parse().map_err(|_| CIndexError::TypeDiscord(format!("{} as integer", data.value)))?)
-            },
-            CsvType::Float => {
-                Variant::Float(data.value.parse().map_err(|_| CIndexError::TypeDiscord(format!("{} as float", data.value)))?)
-            },
+            CsvType::Integer => Variant::Integer(
+                data.value
+                    .parse()
+                    .map_err(|_| CIndexError::TypeDiscord(format!("{} as integer", data.value)))?,
+            ),
+            CsvType::Float => Variant::Float(
+                data.value
+                    .parse()
+                    .map_err(|_| CIndexError::TypeDiscord(format!("{} as float", data.value)))?,
+            ),
             CsvType::BLOB => Variant::BLOB(data.value.as_bytes()),
         };
 
@@ -337,10 +375,15 @@ impl OrderType {
         match text.to_lowercase().as_str() {
             "asec" => Ok(Self::Asec(column.to_string())),
             "desc" => Ok(Self::Desc(column.to_string())),
-            _ => return Err(CIndexError::InvalidQueryStatement(format!("Ordertype can only be ASEC OR DESC but given \"{}\"", text)))
+            _ => {
+                return Err(CIndexError::InvalidQueryStatement(format!(
+                    "Ordertype can only be ASEC OR DESC but given \"{}\"",
+                    text
+                )))
+            }
         }
     }
-} 
+}
 
 /// Query to index a table
 #[derive(Debug)]
@@ -351,7 +394,7 @@ pub struct Query {
     predicates: Option<Vec<Predicate>>,
     order_type: OrderType,
     pub flags: QueryFlags,
-    
+
     // TODO
     // Currently join is not supported
     #[allow(dead_code)]
@@ -365,7 +408,7 @@ impl Query {
 
     pub fn empty(table_name: &str) -> Self {
         Self {
-            table_name: table_name.to_owned(), 
+            table_name: table_name.to_owned(),
             column_names: None,
             predicates: None,
             order_type: OrderType::None,
@@ -377,7 +420,7 @@ impl Query {
 
     pub fn build() -> Self {
         Self {
-            table_name: String::new(), 
+            table_name: String::new(),
             column_names: None,
             predicates: None,
             joined_tables: None,
@@ -388,7 +431,8 @@ impl Query {
     }
 
     pub fn columns(mut self, colum_names: Vec<impl AsRef<str>>) -> Self {
-        self.column_names.replace(colum_names.iter().map(|s| s.as_ref().to_owned()).collect());
+        self.column_names
+            .replace(colum_names.iter().map(|s| s.as_ref().to_owned()).collect());
         self
     }
 
@@ -422,7 +466,6 @@ impl Query {
     }
 }
 
-
 /// Predicate to decide whether a specific row should be included
 #[derive(Debug)]
 pub struct Predicate {
@@ -444,12 +487,12 @@ impl Predicate {
     }
 
     pub fn separator(mut self, separator: Separator) -> Self {
-        self.separator= separator;
+        self.separator = separator;
         self
     }
 
     pub fn column(mut self, column: &str) -> Self {
-        self.column = column.to_owned(); 
+        self.column = column.to_owned();
         self
     }
 
@@ -458,20 +501,23 @@ impl Predicate {
         self
     }
     pub fn raw_args(mut self, args: &str) -> Self {
-        self.arguments = args.split(' ').map(|v| v.to_owned()).collect::<Vec<String>>();
+        self.arguments = args
+            .split(' ')
+            .map(|v| v.to_owned())
+            .collect::<Vec<String>>();
         self
     }
 
-    pub fn args(mut self, args:Vec<impl AsRef<str>>) -> Self {
+    pub fn args(mut self, args: Vec<impl AsRef<str>>) -> Self {
         self.arguments = args.iter().map(|s| s.as_ref().to_owned()).collect();
         self
     }
 
     // </BUILDER>
-    
-    pub fn new(column: & str, operation: Operator) -> Self {
+
+    pub fn new(column: &str, operation: Operator) -> Self {
         Self {
-            separator : Separator::And,
+            separator: Separator::And,
             column: column.to_owned(),
             operation,
             arguments: vec![],
@@ -483,14 +529,14 @@ impl Predicate {
     }
 
     pub fn set_column(&mut self, column: &str) {
-        self.column = column.to_owned(); 
+        self.column = column.to_owned();
     }
 
     pub fn set_operator(&mut self, op: Operator) {
         self.operation = op;
     }
 
-    pub fn set_args(&mut self, args:Vec<String>) {
+    pub fn set_args(&mut self, args: Vec<String>) {
         self.arguments = args;
     }
 
@@ -516,15 +562,15 @@ pub enum Operator {
 impl Operator {
     pub fn from_token(token: &str) -> Self {
         match token.to_lowercase().as_str() {
-            ">"         => Self::Bigger,
-            ">="        => Self::BiggerOrEqual,
-            "<"         => Self::Smaller,
-            "<="        => Self::SmallerOrEqual,
-            "="         => Self::Equal,
-            "!="        => Self::NotEqual,
-            "between"   => Self::Between,
-            "in"        => Self::In,
-            "like"      => Self::Like,
+            ">" => Self::Bigger,
+            ">=" => Self::BiggerOrEqual,
+            "<" => Self::Smaller,
+            "<=" => Self::SmallerOrEqual,
+            "=" => Self::Equal,
+            "!=" => Self::NotEqual,
+            "between" => Self::Between,
+            "in" => Self::In,
+            "like" => Self::Like,
             _ => panic!("NOt implemented"),
         }
     }
@@ -557,16 +603,19 @@ impl Default for QueryFlags {
 impl QueryFlags {
     /// Clear all bit flags
     pub fn clear(&mut self) {
-        self.bits = 0;  
+        self.bits = 0;
     }
 
     pub fn set_str(&mut self, flag: &str) -> CIndexResult<()> {
         match flag.to_lowercase().as_str() {
             "phd" | "print-header" => self.set(QueryFlags::PHD, true),
             "sup" | "supplment" => self.set(QueryFlags::SUP, true),
-            _ => return Err(CIndexError::InvalidQueryStatement(format!("Invalid query flag"))),
+            _ => {
+                return Err(CIndexError::InvalidQueryStatement(format!(
+                    "Invalid query flag"
+                )))
+            }
         }
         Ok(())
     }
 }
-
