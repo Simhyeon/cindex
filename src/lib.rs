@@ -18,9 +18,9 @@
 /// ```no_run
 /// use std::fs::File;
 /// use cindex::{Indexer, CsvType, Predicate, Query, OutOption, Operator};
-/// 
+///
 /// let mut indexer = Indexer::new();
-/// 
+///
 /// // Add table without types
 /// // Default types for every columns are "Text"
 /// indexer
@@ -29,7 +29,7 @@
 ///         File::open("test.csv").expect("Failed to open a file"),
 ///     )
 ///     .expect("Failed to add table");
-/// 
+///
 /// // Add table with column types
 /// indexer
 ///     .add_table(
@@ -40,21 +40,21 @@
 ///             .as_bytes(),
 ///     )
 ///     .expect("Failed to add table");
-/// 
+///
 /// // Add table from stdin
 /// let stdin = std::io::stdin();
 /// indexer
 ///     .add_table_fast("table3", stdin.lock())
 ///     .expect("Failed to add table");
-/// 
+///
 /// // Indexing
-/// 
+///
 /// // Create query object and print output to terminal
-/// let query = Query::from_str("SELECT a,b,c FROM table1 WHERE a = 10");
+/// let query = Query::from_str("SELECT a,b,c FROM table1 WHERE a = 10").expect("Failed to create query");
 /// indexer
 ///     .index(query, OutOption::Term)
 ///     .expect("Failed to index a table");
-/// 
+///
 /// // Use raw query and yield output to a file
 /// indexer
 ///     .index_raw(
@@ -62,7 +62,7 @@
 ///         OutOption::File(std::fs::File::create("out.csv").expect("Failed to create a file")),
 ///     )
 ///     .expect("Failed to index a table");
-/// 
+///
 /// // Use builder pattern to construct query and index a table
 /// let query = Query::empty("table2")
 ///     .columns(vec!["id", "address"])
@@ -73,15 +73,15 @@
 ///             .operator(Operator::NotEqual)
 ///             .raw_args("111-2222"),
 ///     );
-/// 
+///
 /// let mut acc = String::new();
 /// indexer
 ///     .index(query, OutOption::Value(&mut acc))
 ///     .expect("Failed to index a table");
-/// 
+///
 /// // Always use unix newline for formatting
 /// indexer.always_use_unix_newline(true);
-/// 
+///
 /// ```
 ///
 /// # Query
@@ -114,6 +114,7 @@
 /// /* In this case each flag does next operation
 ///   - PHD (PRINT-HEADER) : Print header in result output
 ///   - SUP (SUPPLEMENT)   : Enable selection of non-existent column with empty values
+///   - TP  (Tranpose)     : Tranpose result 
 ///  */
 /// ```
 /// Supported WHERE operations are

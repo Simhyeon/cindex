@@ -589,8 +589,9 @@ pub enum ColumnIndex {
 
 bitflags! {
     pub struct QueryFlags: u32 {
-        const PHD = 0b00000001;
-        const SUP = 0b00000100;
+        const PHD = 0b00000001; // Print header
+        const TP  = 0b00000010; // Tranpose
+        const SUP = 0b00000100; // Supplement
     }
 }
 
@@ -610,6 +611,7 @@ impl QueryFlags {
         match flag.to_lowercase().as_str() {
             "phd" | "print-header" => self.set(QueryFlags::PHD, true),
             "sup" | "supplment" => self.set(QueryFlags::SUP, true),
+            "tp" | "tranpose" => self.set(QueryFlags::TP, true),
             _ => {
                 return Err(CIndexError::InvalidQueryStatement(format!(
                     "Invalid query flag"

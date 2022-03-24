@@ -115,10 +115,7 @@ impl Indexer {
 
     /// Index with pre-built query
     pub fn index(&self, query: Query, mut out_option: OutOption) -> CIndexResult<()> {
-        let mut output_header = String::new();
-        let records = self.index_table(query, &mut output_header)?;
-
-        self.write(&(output_header + self.get_newline()), &mut out_option)?;
+        let records = self.index_table(query)?;
 
         for row in records {
             self.write(&(row.join(",") + self.get_newline()), &mut out_option)?;
@@ -127,17 +124,15 @@ impl Indexer {
     }
 
     /// Get rows filtered by query
-    pub fn index_get_records(&self, query: Query) -> CIndexResult<Vec<Vec<&str>>> {
-        let records = self.index_table(query, &mut String::new())?;
+    pub fn index_get_records(&self, query: Query) -> CIndexResult<Vec<Vec<String>>> {
+        let records = self.index_table(query)?;
         Ok(records)
     }
 
     /// Internal function
-    fn index_table(
-        &self,
-        query: Query,
-        output_header: &mut String,
-    ) -> CIndexResult<Vec<Vec<&str>>> {
+    fn index_table(&self, query: Query) -> CIndexResult<Vec<Vec<String>>> {
+        let mut output_header = vec![];
+        let mut mapped_records: Vec<Vec<&str>> = vec![];
         let table =
             self.tables
                 .get(query.table_name.as_str())
@@ -188,28 +183,25 @@ impl Indexer {
         if query.flags.contains(QueryFlags::PHD) {
             let columns = query.column_names.unwrap_or(vec!["*".to_owned()]);
             let map = query.column_map.unwrap_or(vec![]);
-            if columns[0] == "*" {
+            output_header = if columns[0] == "*" {
                 let headers = table
                     .headers
                     .iter()
                     .map(|s| s.to_string())
                     .collect::<Vec<String>>();
-                *output_header = map
-                    .iter()
+
+                map.iter()
                     .chain(headers[map.len()..].iter())
-                    .map(|s| s.as_str())
-                    .collect::<Vec<&str>>()
-                    .join(",");
+                    .map(|s| s.to_string())
+                    .collect::<Vec<String>>()
             } else {
-                *output_header = map
-                    .iter()
+                map.iter()
                     .chain(columns[map.len()..].iter())
-                    .map(|s| s.as_str())
-                    .collect::<Vec<&str>>()
-                    .join(",");
-            }
+                    .map(|s| s.to_string())
+                    .collect::<Vec<String>>()
+            };
+            mapped_records.push(output_header.iter().map(|s| s.as_str()).collect());
         }
-        let mut mapped_records = vec![];
 
         let mut records_iter = queried_records.iter();
 
@@ -221,7 +213,31 @@ impl Indexer {
             };
         }
 
-        Ok(mapped_records)
+        // Tranpose if given TP Flag
+        if query.flags.contains(QueryFlags::TP) {
+            mapped_records = self.tranpose_records(mapped_records);
+        }
+
+        Ok(mapped_records
+            .iter_mut()
+            .map(|vec| vec.iter_mut().map(|val| val.to_string()).collect())
+            .collect())
+    }
+
+    // Tranpose
+    // https://stackoverflow.com/questions/64498617/how-to-transpose-a-vector-of-vectors-in-rust
+    // Thank you stackoverflow ;)
+    fn tranpose_records<'a>(&'a self, v: Vec<Vec<&'a str>>) -> Vec<Vec<&'a str>> {
+        let len = v[0].len();
+        let mut iters: Vec<_> = v.into_iter().map(|n| n.into_iter()).collect();
+        (0..len)
+            .map(|_| {
+                iters
+                    .iter_mut()
+                    .map(|n| n.next().unwrap())
+                    .collect::<Vec<&str>>()
+            })
+            .collect()
     }
 
     fn write(&self, content: &str, out_option: &mut OutOption) -> CIndexResult<()> {
