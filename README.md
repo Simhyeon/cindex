@@ -122,6 +122,12 @@ new h,new h2,new h3
 <-- Content goes here -->
  */
 
+/* You can use OFFSET and LIMIT syntax to control how much lines to print*/
+/* Keep in mind that this doesn't early return from indexing, but it works as
+   final_records[offset..offset+limit] */
+/* e.g. next line gets records[1..3] */
+SELECT * FROM table1 OFFSET 1 LIMIT 2
+
 /* Select given columns from table where column's value is equal to given
 condition and also other column's value matches regex expression */
 SELECT col1,col2 FROM table1 WHERE col1 = 10 AND col2 LIKE ^start
@@ -132,6 +138,7 @@ SELECT * FROM table_name FLAG PHD SUP
 /* In this case each flag does next operation
   - PHD (PRINT-HEADER) : Print header in result output
   - SUP (SUPPLEMENT)   : Enable selection of non-existent column with empty values
+  - TP  (Transpose)    : Transpose(Invert) csv value as of linalg
  */
 ```
 

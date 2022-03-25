@@ -3,9 +3,10 @@
 * [ ] Join functionality
 * [ ] <OR> variant for predicate
 - Currently all predicate are AND variant
-* [ ] Transpose
 * [ ] Datetime
 * [ ] Evaluation process would be useful
+* [x] Transpose
+* [x] Offset, Limit
 
 ### DONE
 
