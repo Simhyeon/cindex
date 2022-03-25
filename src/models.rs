@@ -54,17 +54,18 @@ impl Table {
         let iter = self.rows.iter();
 
         let mut queried: Vec<_> = iter
-            .filter_map(|row| match row.filter(&self.headers, &predicates) {
-                Ok(boolean) => {
-                    if boolean {
-                        Some(row)
-                    } else {
+            .filter_map(|row| { match row.filter(&self.headers, &predicates) {
+                    Ok(boolean) => {
+                        if boolean {
+                            Some(row)
+                        } else {
+                            None
+                        }
+                    }
+                    Err(err) => {
+                        eprintln!("{}", err);
                         None
                     }
-                }
-                Err(err) => {
-                    eprintln!("{}", err);
-                    None
                 }
             })
             .collect();
@@ -99,6 +100,16 @@ impl Table {
                     )));
                 }
             }
+        }
+
+        // If offset or limit has been provided
+        // Slice it
+        if query.range.0 != 0 || query.range.1 != 0 {
+            let offset = (query.range.0).min(queried.len());
+            let limit = query.range.1;
+
+            let query_limit = if limit == 0 { queried.len() } else { (offset + limit).min(queried.len()) };
+            queried = queried[offset..query_limit].to_vec();
         }
 
         Ok(queried)
@@ -394,6 +405,7 @@ pub struct Query {
     predicates: Option<Vec<Predicate>>,
     order_type: OrderType,
     pub flags: QueryFlags,
+    pub range: (usize,usize),
 
     // TODO
     // Currently join is not supported
@@ -415,6 +427,7 @@ impl Query {
             joined_tables: None,
             column_map: None,
             flags: QueryFlags::empty(),
+            range: (0,0),
         }
     }
 
@@ -427,6 +440,7 @@ impl Query {
             order_type: OrderType::None,
             column_map: None,
             flags: QueryFlags::empty(),
+            range: (0,0),
         }
     }
 
@@ -453,6 +467,7 @@ impl Query {
         order_type: OrderType,
         column_map: Option<Vec<String>>,
         flags: QueryFlags,
+        range: (usize,usize)
     ) -> Self {
         Self {
             table_name,
@@ -462,6 +477,7 @@ impl Query {
             order_type,
             column_map,
             flags,
+            range,
         }
     }
 }

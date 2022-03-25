@@ -1,6 +1,6 @@
 use crate::{
     models::{Operator, OrderType, Predicate, Query, QueryFlags, Separator},
-    CIndexResult,
+    CIndexResult, CIndexError,
 };
 
 pub struct Parser {
@@ -17,6 +17,7 @@ pub struct ParseState {
     joined: Option<Vec<String>>,
     order_by: Vec<String>,
     flags: QueryFlags,
+    range: (usize,usize),
 }
 
 #[derive(PartialEq)]
@@ -27,6 +28,8 @@ pub enum ParseCursor {
     Where,
     Join,
     OrderBy(bool),
+    Limit,
+    Offset,
     Hmap,
     Flag,
 }
@@ -87,6 +90,7 @@ impl Parser {
             order_type,
             column_map,
             self.state.flags,
+            self.state.range,
         ))
     }
 
@@ -104,6 +108,12 @@ impl Parser {
                 } else {
                     ParseCursor::None
                 }
+            }
+            "limit" => {
+                ParseCursor::Limit
+            }
+            "offset" => {
+                ParseCursor::Offset
             }
             "flag" => ParseCursor::Flag,
             _ => ParseCursor::None,
@@ -158,7 +168,15 @@ impl Parser {
             ParseCursor::Flag => {
                 self.state.flags.set_str(&arg)?;
             }
-            _ => {}
+            ParseCursor::Offset => {
+                self.state.range.0 = arg.parse()
+                    .map_err(|_| CIndexError::InvalidTableName(format!("Limit's argument should be usize value")))?;
+            }
+            ParseCursor::Limit => {
+                self.state.range.1 = arg.parse()
+                    .map_err(|_| CIndexError::InvalidTableName(format!("Limit's argument should be usize value")))?;
+            }
+            ParseCursor::None | ParseCursor::OrderBy(false) => (),
         }
         Ok(())
     }

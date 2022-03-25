@@ -27,10 +27,12 @@ mod tests {
             Query::from_str(
                 "SELECT * FROM table1 
                 ORDER BY a ASEC 
+                OFFSET 3
                 FLAG PHD",
             )?,
             OutOption::Term,
         )?;
+        println!("---");
         indexer.index(
             Query::from_str(
                 "SELECT * FROM table1 
