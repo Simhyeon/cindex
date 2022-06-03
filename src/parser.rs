@@ -1,7 +1,8 @@
 use crate::{
-    models::{Operator, OrderType, Predicate, Query, QueryFlags, Separator},
+    models::OrderType,
     CIndexResult, CIndexError,
 };
+use crate::query::{Operator, Predicate ,Query,QueryFlags, Separator};
 
 pub struct Parser {
     cursor: ParseCursor,

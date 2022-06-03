@@ -133,11 +133,14 @@
 mod consts;
 mod error;
 mod indexer;
-pub mod models;
+mod models;
+mod table;
+mod query;
 mod parser;
 #[cfg(test)]
 mod test;
 
 pub use error::{CIndexError, CIndexResult};
 pub use indexer::{Indexer, OutOption};
-pub use models::{CsvType, Operator, Predicate, Query};
+pub use models::CsvType;
+pub use query::{Operator, Predicate, Query};

@@ -1,4 +1,6 @@
-use crate::models::{ColumnIndex, CsvType, Query, QueryFlags, Table};
+use crate::models::{ColumnIndex, CsvType};
+use crate::table::Table;
+use crate::query::{Query, QueryFlags};
 use crate::{consts, CIndexError, CIndexResult};
 #[cfg(feature = "rayon")]
 use rayon::prelude::*;
@@ -131,7 +133,7 @@ impl Indexer {
 
     /// Internal function
     fn index_table(&self, query: Query) -> CIndexResult<Vec<Vec<String>>> {
-        let mut output_header = vec![];
+        let output_header;
         let mut mapped_records: Vec<Vec<&str>> = vec![];
         let table =
             self.tables

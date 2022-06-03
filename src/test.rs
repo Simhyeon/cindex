@@ -1,10 +1,10 @@
 #[cfg(test)]
 mod tests {
-    use crate::models::Operator;
+    use crate::Operator;
     use crate::CIndexResult;
     use crate::{
         indexer::{Indexer, OutOption},
-        models::{CsvType, Predicate, Query},
+        {CsvType, Predicate, Query},
     };
     use std::fs::File;
 
