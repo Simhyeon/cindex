@@ -1,7 +1,8 @@
-use crate::models::{ColumnIndex, CsvType};
-use crate::table::Table;
+use crate::models::ColumnVariant;
 use crate::query::{Query, QueryFlags};
+use crate::table::Table;
 use crate::{consts, CIndexError, CIndexResult};
+use dcsv::Row;
 #[cfg(feature = "rayon")]
 use rayon::prelude::*;
 use std::collections::HashMap;
@@ -49,63 +50,14 @@ impl Indexer {
 
     /// Add table without header
     pub fn add_table_fast(&mut self, table_name: &str, input: impl Read) -> CIndexResult<()> {
-        self.add_table(table_name, vec![], input)
+        self.add_table_internal(table_name, input)
     }
 
-    /// Add table
-    pub fn add_table(
-        &mut self,
-        table_name: &str,
-        header_types: Vec<CsvType>,
-        mut input: impl Read,
-    ) -> CIndexResult<()> {
+    fn add_table_internal(&mut self, table_name: &str, mut input: impl Read) -> CIndexResult<()> {
         let mut table_content = String::new();
         input.read_to_string(&mut table_content)?;
-
-        let mut lines = table_content.lines();
-        let headers: Vec<(String, CsvType)>;
-        let mut rows = vec![];
-
-        if let Some(headers_line) = lines.next() {
-            // Pad headers if heade's length is longer than header_types
-
-            let header_types_iter = header_types[0..]
-                .iter()
-                .chain(std::iter::repeat(&CsvType::Text));
-            let header_lines_iter = headers_line.split(',');
-
-            // NOTE
-            // Technically speaking, types can be bigger than header values length
-            // But it yields expectable behaviour, thus it stays as it is.
-            let len = header_lines_iter.clone().collect::<Vec<&str>>().len();
-
-            headers = header_types_iter
-                .zip(header_lines_iter)
-                .take(len)
-                .map(|(value, t)| (t.to_owned(), *value))
-                .collect();
-        } else {
-            return Err(CIndexError::InvalidTableInput(format!(
-                "No header option is not supported"
-            )));
-        }
-
-        for line in lines {
-            let row: Vec<&str> = line.split(',').collect();
-
-            if row.len() != headers.len() {
-                return Err(CIndexError::InvalidTableInput(format!(
-                    "Row's length \"{}\" is different from header's length \"{}\"",
-                    row.len(),
-                    headers.len()
-                )));
-            }
-
-            rows.push(row);
-        }
-
         self.tables
-            .insert(table_name.to_owned(), Table::new(headers, rows)?);
+            .insert(table_name.to_owned(), Table::new(table_content.as_bytes())?);
         Ok(())
     }
 
@@ -133,8 +85,7 @@ impl Indexer {
 
     /// Internal function
     fn index_table(&self, query: Query) -> CIndexResult<Vec<Vec<String>>> {
-        let output_header;
-        let mut mapped_records: Vec<Vec<&str>> = vec![];
+        let mut mapped_records: Vec<Vec<String>> = vec![];
         let table =
             self.tables
                 .get(query.table_name.as_str())
@@ -144,7 +95,8 @@ impl Indexer {
                 )))?;
         let queried_records = table.query(&query)?;
 
-        let target_columns: Option<Vec<ColumnIndex>> = if let Some(ref cols) = query.column_names {
+        let target_columns: Option<Vec<ColumnVariant>> = if let Some(ref cols) = query.column_names
+        {
             if cols.len() > 0 && cols[0] == "*" {
                 None
             } else {
@@ -158,16 +110,16 @@ impl Indexer {
                 let supplement = query.flags.contains(QueryFlags::SUP);
                 let collection: Vec<_> = if supplement {
                     iter.map(|i| {
-                        if let Some(index) = table.headers.get_index_of(i) {
-                            ColumnIndex::Real(index)
+                        if let Some(col) = table.header.get(i) {
+                            ColumnVariant::Real(col)
                         } else {
-                            ColumnIndex::Supplement
+                            ColumnVariant::Supplement
                         }
                     })
                     .collect()
                 } else {
-                    iter.map(|i| -> Result<ColumnIndex, CIndexError> {
-                        let index = ColumnIndex::Real(table.headers.get_index_of(i).ok_or(
+                    iter.map(|i| -> Result<ColumnVariant, CIndexError> {
+                        let index = ColumnVariant::Real(table.header.get(i).ok_or(
                             CIndexError::InvalidColumn(format!("No such column \"{}\"", i)),
                         )?);
                         Ok(index)
@@ -183,36 +135,22 @@ impl Indexer {
 
         // Print headers
         if query.flags.contains(QueryFlags::PHD) {
-            let columns = query.column_names.unwrap_or(vec!["*".to_owned()]);
-            let map = query.column_map.unwrap_or(vec![]);
-            output_header = if columns[0] == "*" {
-                let headers = table
-                    .headers
-                    .iter()
-                    .map(|s| s.to_string())
-                    .collect::<Vec<String>>();
-
-                map.iter()
-                    .chain(headers[map.len()..].iter())
-                    .map(|s| s.to_string())
-                    .collect::<Vec<String>>()
-            } else {
-                map.iter()
-                    .chain(columns[map.len()..].iter())
-                    .map(|s| s.to_string())
-                    .collect::<Vec<String>>()
-            };
-            mapped_records.push(output_header.iter().map(|s| s.as_str()).collect());
+            mapped_records.push(table.data.columns.iter().map(|c| c.name.clone()).collect());
         }
 
-        let mut records_iter = queried_records.iter();
-
-        while let Some(&row) = records_iter.next() {
+        for record in queried_records {
             if let Some(cols) = &target_columns {
-                mapped_records.push(row.column_splited(cols))
+                mapped_records.push(self.row_with_columns(record, cols))
             } else {
-                mapped_records.push(row.splited())
-            };
+                mapped_records.push(
+                    table
+                        .data
+                        .columns
+                        .iter()
+                        .map(|col| record.get_cell_value(&col.name).unwrap().to_string())
+                        .collect(),
+                )
+            }
         }
 
         // Tranpose if given TP Flag
@@ -226,10 +164,21 @@ impl Indexer {
             .collect())
     }
 
+    fn row_with_columns(&self, row: &Row, columns: &Vec<ColumnVariant>) -> Vec<String> {
+        let mut formatted = vec![];
+
+        for col in columns {
+            if let ColumnVariant::Real(key) = col {
+                formatted.push(row.get_cell_value(key).unwrap().to_string());
+            }
+        }
+        formatted
+    }
+
     // Tranpose
     // https://stackoverflow.com/questions/64498617/how-to-transpose-a-vector-of-vectors-in-rust
     // Thank you stackoverflow ;)
-    fn tranpose_records<'a>(&'a self, v: Vec<Vec<&'a str>>) -> Vec<Vec<&'a str>> {
+    fn tranpose_records<'a>(&'a self, v: Vec<Vec<String>>) -> Vec<Vec<String>> {
         let len = v[0].len();
         let mut iters: Vec<_> = v.into_iter().map(|n| n.into_iter()).collect();
         (0..len)
@@ -237,7 +186,7 @@ impl Indexer {
                 iters
                     .iter_mut()
                     .map(|n| n.next().unwrap())
-                    .collect::<Vec<&str>>()
+                    .collect::<Vec<String>>()
             })
             .collect()
     }
