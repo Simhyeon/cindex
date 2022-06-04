@@ -1,31 +1,30 @@
-use indexmap::IndexSet;
-use crate::error::{CIndexResult, CIndexError};
+use crate::error::{CIndexError, CIndexResult};
+use crate::models::OrderType;
 use crate::query::Query;
-use crate::models::{Row, CsvType, OrderType, Variant};
-use std::fmt::Display;
+use crate::{Operator, Predicate};
+use dcsv::{Reader, Row, VirtualData};
 #[cfg(feature = "rayon")]
 use rayon::prelude::*;
+use std::collections::HashSet;
+use std::fmt::Display;
+use std::io::BufRead;
+use std::iter::FromIterator;
 
-#[derive(Debug)]
 pub struct Table {
-    pub(crate) headers: IndexSet<String>,
-    pub(crate) rows: Vec<Row>,
+    pub(crate) header: HashSet<String>,
+    pub(crate) data: VirtualData,
 }
 
 impl Table {
-    pub fn new(headers: Vec<(String, CsvType)>, rows: Vec<Vec<&str>>) -> CIndexResult<Self> {
-        // Make this rayon compatible iterator
-        let rows: CIndexResult<Vec<Row>> = rows.iter().map(|row| Row::new(&headers, row)).collect();
-
-        let mut header_set: IndexSet<String> = IndexSet::new();
-
-        for (header, _) in headers.iter() {
-            header_set.insert(header.to_owned());
-        }
+    pub fn new(table_content: impl BufRead) -> CIndexResult<Self> {
+        let data = Reader::new()
+            .has_header(true)
+            .read_from_stream(table_content)
+            .unwrap();
 
         Ok(Self {
-            headers: header_set,
-            rows: rows?,
+            header: HashSet::from_iter(data.columns.iter().map(|c| c.name.clone())),
+            data,
         })
     }
 
@@ -33,7 +32,7 @@ impl Table {
         let boilerplate = vec![];
         let predicates = if let Some(pre) = query.predicates.as_ref() {
             for item in pre {
-                if !self.headers.contains(&item.column) {
+                if !self.header.contains(&item.column) {
                     return Err(CIndexError::InvalidColumn(format!(
                         "Failed to get column \"{}\" from header",
                         item.column
@@ -42,41 +41,31 @@ impl Table {
             }
             pre
         } else {
-            &boilerplate
+            &boilerplate // Empty predicates
         };
 
         // TODO
         // Can it be improved?
         #[cfg(feature = "rayon")]
-        let iter = self.rows.par_iter();
+        let iter = self.data.rows.par_iter();
         #[cfg(not(feature = "rayon"))]
-        let iter = self.rows.iter();
+        let iter = self.data.rows.iter();
 
-        let mut queried: Vec<_> = iter
-            .filter_map(|row| { match row.filter(&self.headers, &predicates) {
-                    Ok(boolean) => {
-                        if boolean {
-                            Some(row)
-                        } else {
-                            None
-                        }
-                    }
-                    Err(err) => {
-                        eprintln!("{}", err);
-                        None
-                    }
-                }
-            })
-            .collect();
+        let mut queried: Vec<&Row> = iter.filter(|row| self.filter(row, predicates)).collect();
 
         match &query.order_type {
-            OrderType::None => (),
-            OrderType::Asec(col) => {
-                if let Some(index) = self.headers.get_index_of(col.as_str()) {
-                    queried.sort_by(|a, b| {
-                        let a = Variant::from_data(&a.data[index]).unwrap();
-                        let b = Variant::from_data(&b.data[index]).unwrap();
-                        a.partial_cmp(&b).unwrap()
+            OrderType::Desc(col) | OrderType::Asec(col) => {
+                if self.header.contains(col) {
+                    queried.sort_by(|&a, &b| {
+                        let a = a.get_cell_value(&col).unwrap();
+                        let b = b.get_cell_value(&col).unwrap();
+                        if let OrderType::Desc(_) = &query.order_type {
+                            // Descending
+                            b.partial_cmp(&a).unwrap()
+                        } else {
+                            // Aescending
+                            a.partial_cmp(&b).unwrap()
+                        }
                     });
                 } else {
                     return Err(CIndexError::InvalidQueryStatement(format!(
@@ -85,20 +74,7 @@ impl Table {
                     )));
                 }
             }
-            OrderType::Desc(col) => {
-                if let Some(index) = self.headers.get_index_of(col.as_str()) {
-                    queried.sort_by(|a, b| {
-                        let a = Variant::from_data(&a.data[index]).unwrap();
-                        let b = Variant::from_data(&b.data[index]).unwrap();
-                        b.partial_cmp(&a).unwrap()
-                    });
-                } else {
-                    return Err(CIndexError::InvalidQueryStatement(format!(
-                        "Column \"{}\" doesn't exist",
-                        col
-                    )));
-                }
-            }
+            _ => (),
         }
 
         // If offset or limit has been provided
@@ -107,30 +83,53 @@ impl Table {
             let offset = (query.range.0).min(queried.len());
             let limit = query.range.1;
 
-            let query_limit = if limit == 0 { queried.len() } else { (offset + limit).min(queried.len()) };
+            let query_limit = if limit == 0 {
+                queried.len()
+            } else {
+                (offset + limit).min(queried.len())
+            };
             queried = queried[offset..query_limit].to_vec();
         }
 
         Ok(queried)
     }
+
+    /// Iterator method
+    fn filter(&self, row: &Row, predicates: &Vec<Predicate>) -> bool {
+        for pre in predicates {
+            let column = pre.column.as_str();
+            if !operate_value(
+                &row.get_cell_value(column).unwrap().to_string(),
+                &pre.arguments,
+                &pre,
+            ) {
+                return false;
+            }
+        }
+
+        true
+    }
+}
+
+fn operate_value(comparator: &str, values: &Vec<String>, pre: &Predicate) -> bool {
+    let var = comparator;
+    let arg = values[0].as_str();
+    let operation = &pre.operation;
+    match operation {
+        Operator::Like => pre.matcher.as_ref().unwrap().is_match(var),
+        Operator::Bigger => var > arg,
+        Operator::BiggerOrEqual => var >= arg,
+        Operator::Smaller => var < arg,
+        Operator::SmallerOrEqual => var <= arg,
+        Operator::Equal => var == arg,
+        Operator::NotEqual => var != arg,
+        Operator::In => values.contains(&var.to_owned()),
+        Operator::Between => var >= &values[0] && var <= &values[1],
+    }
 }
 
 impl Display for Table {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}\n",
-            self.headers
-                .iter()
-                .map(|s| s.as_str())
-                .collect::<Vec<&str>>()
-                .join(",")
-        )?;
-
-        for row in &self.rows {
-            write!(f, "{}\n", row)?;
-        }
-        write!(f, "")
+        write!(f, "{}", self.data)
     }
 }
-
