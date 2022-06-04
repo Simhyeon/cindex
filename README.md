@@ -34,7 +34,8 @@ allowed with specific FLAG syntax. Missing comma, is not allowed though.
 [dependencies]
 cindex = "*" # Use the latest version if possible
 
-# Use "default-features = false" if you don't need rayon iteration enhancement.
+# Use rayon feature if you want parrelel iteration of rows
+features = ["rayon"]
 ```
 
 ```rust
