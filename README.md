@@ -97,6 +97,8 @@ indexer.always_use_unix_newline(true);
 
 Cindex's query syntax is similar to SQL but has some small differences.
 
+**Where clause's comparator should come after column name**
+
 ```SQL
 /* Select everythig from given table*/
 SELECT * FROM table1
@@ -148,7 +150,5 @@ Supported WHERE operations are
 ```
 
 # TODO
-
-* [ ] DateTime csv type
 * [ ] Multi where caluse support
 * [ ] Join table
