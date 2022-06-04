@@ -17,7 +17,7 @@
 ///
 /// ```no_run
 /// use std::fs::File;
-/// use cindex::{Indexer, CsvType, Predicate, Query, OutOption, Operator};
+/// use cindex::{Indexer, Predicate, Query, OutOption, Operator};
 ///
 /// let mut indexer = Indexer::new();
 ///
@@ -27,17 +27,6 @@
 ///     .add_table_fast(
 ///         "table1",
 ///         File::open("test.csv").expect("Failed to open a file"),
-///     )
-///     .expect("Failed to add table");
-///
-/// // Add table with column types
-/// indexer
-///     .add_table(
-///         "table2",
-///         vec![CsvType::Text, CsvType::Text],
-///         "id,address
-/// abc,111-2222"
-///             .as_bytes(),
 ///     )
 ///     .expect("Failed to add table");
 ///
@@ -114,7 +103,7 @@
 /// /* In this case each flag does next operation
 ///   - PHD (PRINT-HEADER) : Print header in result output
 ///   - SUP (SUPPLEMENT)   : Enable selection of non-existent column with empty values
-///   - TP  (Tranpose)     : Tranpose result 
+///   - TP  (Tranpose)     : Tranpose result
 ///  */
 /// ```
 /// Supported WHERE operations are
@@ -134,13 +123,12 @@ mod consts;
 mod error;
 mod indexer;
 mod models;
-mod table;
-mod query;
 mod parser;
+mod query;
+mod table;
 #[cfg(test)]
 mod test;
 
 pub use error::{CIndexError, CIndexResult};
 pub use indexer::{Indexer, OutOption};
-pub use models::CsvType;
 pub use query::{Operator, Predicate, Query};
