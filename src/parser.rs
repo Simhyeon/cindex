@@ -1,8 +1,5 @@
-use crate::{
-    models::OrderType,
-    CIndexResult, CIndexError,
-};
-use crate::query::{Operator, Predicate ,Query,QueryFlags, Separator};
+use crate::query::{Operator, Predicate, Query, QueryFlags, Separator};
+use crate::{models::OrderType, CIndexError, CIndexResult};
 
 pub struct Parser {
     cursor: ParseCursor,
@@ -18,7 +15,7 @@ pub struct ParseState {
     joined: Option<Vec<String>>,
     order_by: Vec<String>,
     flags: QueryFlags,
-    range: (usize,usize),
+    range: (usize, usize),
 }
 
 #[derive(PartialEq)]
@@ -62,7 +59,7 @@ impl Parser {
 
         let table_name = std::mem::replace(&mut self.state.table_name, String::new());
         let columns = std::mem::replace(&mut self.state.raw_column_names, None);
-        let predicates = self.get_predicates();
+        let predicates = self.get_predicates()?;
         let joined = std::mem::replace(&mut self.state.joined, None);
         let order_type = match self.state.order_by.len() {
             2 => OrderType::from_str(&self.state.order_by[1], &self.state.order_by[0])?,
@@ -110,12 +107,8 @@ impl Parser {
                     ParseCursor::None
                 }
             }
-            "limit" => {
-                ParseCursor::Limit
-            }
-            "offset" => {
-                ParseCursor::Offset
-            }
+            "limit" => ParseCursor::Limit,
+            "offset" => ParseCursor::Offset,
             "flag" => ParseCursor::Flag,
             _ => ParseCursor::None,
         };
@@ -170,12 +163,14 @@ impl Parser {
                 self.state.flags.set_str(&arg)?;
             }
             ParseCursor::Offset => {
-                self.state.range.0 = arg.parse()
-                    .map_err(|_| CIndexError::InvalidTableName(format!("Limit's argument should be usize value")))?;
+                self.state.range.0 = arg.parse().map_err(|_| {
+                    CIndexError::InvalidTableName(format!("Limit's argument should be usize value"))
+                })?;
             }
             ParseCursor::Limit => {
-                self.state.range.1 = arg.parse()
-                    .map_err(|_| CIndexError::InvalidTableName(format!("Limit's argument should be usize value")))?;
+                self.state.range.1 = arg.parse().map_err(|_| {
+                    CIndexError::InvalidTableName(format!("Limit's argument should be usize value"))
+                })?;
             }
             ParseCursor::None | ParseCursor::OrderBy(false) => (),
         }
@@ -183,13 +178,15 @@ impl Parser {
     }
 
     // Inner parse predicate arguments
-    fn get_predicates(&self) -> Option<Vec<Predicate>> {
+    fn get_predicates(&mut self) -> CIndexResult<Option<Vec<Predicate>>> {
         let mut predicates = vec![];
         let mut p = Predicate::build();
         let mut w_cursor = WhereCursor::Left;
 
         for token in &self.state.where_args {
             if let Some(sep) = self.find_separator(token) {
+                Self::predicate_chore(&mut p)?;
+
                 if !p.column.is_empty() {
                     predicates.push(p);
                 }
@@ -220,10 +217,28 @@ impl Parser {
 
         // Add a lastly created predicated into vector
         if !p.column.is_empty() {
+            Self::predicate_chore(&mut p)?;
             predicates.push(p);
         }
 
-        Some(predicates)
+        Ok(Some(predicates))
+    }
+
+    /// Apply chores for predciat
+    fn predicate_chore(predicate: &mut Predicate) -> CIndexResult<()> {
+        // Precompile regex
+        if Operator::Like == predicate.operation {
+            predicate.set_matcher(&predicate.arguments.last().unwrap().clone())?;
+        }
+
+        if predicate.arguments.len() < 1 {
+            return Err(CIndexError::InvalidQueryStatement(format!(
+                "Query has insufficient arguments : {:?}",
+                predicate
+            )));
+        }
+
+        Ok(())
     }
 
     fn find_separator(&self, token: &str) -> Option<Separator> {
