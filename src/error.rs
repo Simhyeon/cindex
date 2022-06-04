@@ -1,23 +1,30 @@
-use thiserror::Error;
-
 pub type CIndexResult<T> = Result<T, CIndexError>;
 
-#[derive(Debug, Error)]
+#[derive(Debug)]
 pub enum CIndexError {
-    #[error("Invalid csv table\n= {0}")]
     InvalidTableInput(String),
-    #[error("IO Error\n= {0}")]
     IoError(std::io::Error),
-    #[error("Invalid table name\n= {0}")]
     InvalidTableName(String),
-    #[error("Failed to convert data into designted type\n= {0}")]
     TypeDiscord(String),
-    #[error("Invalid column\n= {0}")]
     InvalidColumn(String),
-    #[error("Invalid data type \n= {0}")]
     InvalidDataType(String),
-    #[error("Invalid query statement \n= {0}")]
     InvalidQueryStatement(String),
+}
+
+impl std::fmt::Display for CIndexError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidTableInput(txt) => write!(f, "Invalid csv table\n= {}", txt),
+            Self::IoError(err) => write!(f, "IO Error\n= {}", err),
+            Self::InvalidTableName(err) => write!(f, "Invalid table name\n= {}", err),
+            Self::TypeDiscord(err) => {
+                write!(f, "Failed to convert data into designted type\n= {}", err)
+            }
+            Self::InvalidColumn(err) => write!(f, "Invalid column\n= {}", err),
+            Self::InvalidDataType(err) => write!(f, "Invalid data type \n= {}", err),
+            Self::InvalidQueryStatement(err) => write!(f, "Invalid query statement \n= {}", err),
+        }
+    }
 }
 
 impl From<std::io::Error> for CIndexError {
