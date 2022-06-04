@@ -1,7 +1,8 @@
-use bitflags::bitflags;
-use crate::parser::Parser;
-use crate::error::{CIndexResult, CIndexError};
+use crate::error::{CIndexError, CIndexResult};
 use crate::models::OrderType;
+use crate::parser::Parser;
+use bitflags::bitflags;
+use regex::Regex;
 
 /// Query to index a table
 #[derive(Debug)]
@@ -12,7 +13,7 @@ pub struct Query {
     pub(crate) predicates: Option<Vec<Predicate>>,
     pub(crate) order_type: OrderType,
     pub flags: QueryFlags,
-    pub range: (usize,usize),
+    pub range: (usize, usize),
 
     // TODO
     // Currently join is not supported
@@ -34,7 +35,7 @@ impl Query {
             joined_tables: None,
             column_map: None,
             flags: QueryFlags::empty(),
-            range: (0,0),
+            range: (0, 0),
         }
     }
 
@@ -47,7 +48,7 @@ impl Query {
             order_type: OrderType::None,
             column_map: None,
             flags: QueryFlags::empty(),
-            range: (0,0),
+            range: (0, 0),
         }
     }
 
@@ -74,7 +75,7 @@ impl Query {
         order_type: OrderType,
         column_map: Option<Vec<String>>,
         flags: QueryFlags,
-        range: (usize,usize)
+        range: (usize, usize),
     ) -> Self {
         Self {
             table_name,
@@ -96,6 +97,7 @@ pub struct Predicate {
     pub(crate) column: String,
     pub(crate) operation: Operator,
     pub(crate) arguments: Vec<String>,
+    pub(crate) matcher: Option<Regex>,
 }
 
 impl Predicate {
@@ -106,6 +108,7 @@ impl Predicate {
             column: String::new(),
             operation: Operator::Equal,
             arguments: vec![],
+            matcher: None,
         }
     }
 
@@ -123,6 +126,14 @@ impl Predicate {
         self.operation = op;
         self
     }
+
+    pub fn matcher(mut self, pattern: &str) -> CIndexResult<Self> {
+        self.matcher.replace(Regex::new(pattern).map_err(|_| {
+            CIndexError::InvalidQueryStatement(format!("Invalid regex pattern : \"{}\"", pattern))
+        })?);
+        Ok(self)
+    }
+
     pub fn raw_args(mut self, args: &str) -> Self {
         self.arguments = args
             .split(' ')
@@ -144,7 +155,15 @@ impl Predicate {
             column: column.to_owned(),
             operation,
             arguments: vec![],
+            matcher: None,
         }
+    }
+
+    pub fn set_matcher(&mut self, pattern: &str) -> CIndexResult<()> {
+        self.matcher.replace(Regex::new(pattern).map_err(|_| {
+            CIndexError::InvalidQueryStatement(format!("Invalid regex pattern : \"{}\"", pattern))
+        })?);
+        Ok(())
     }
 
     pub fn set_separator(&mut self, separator: Separator) {
@@ -169,7 +188,7 @@ impl Predicate {
 }
 
 /// Operator to calculate operands
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Operator {
     Bigger,
     BiggerOrEqual,
