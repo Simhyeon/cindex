@@ -8,6 +8,8 @@ csv files.
 
 Binary to be added soon.
 
+[changes](./docs/change.md)
+
 # Features
 
 **Read csv file as string table**
@@ -50,21 +52,10 @@ indexer
     )
     .expect("Failed to add table");
 
-// Add table with column types
-indexer
-    .add_table(
-        "table2",
-        vec![CsvType::Text, CsvType::Text],
-        "id,address
-abc,111-2222"
-            .as_bytes(),
-    )
-    .expect("Failed to add table");
-
 // Add table from stdin
 let stdin = std::io::stdin();
 indexer
-    .add_table_fast("table3", stdin.lock())
+    .add_table_fast("table2", stdin.lock())
     .expect("Failed to add table");
 
 // Indexing
@@ -78,13 +69,13 @@ indexer
 // Use raw query and yield output to a file
 indexer
     .index_raw(
-        "SELECT * FROM table3 WHERE id = 10",
+        "SELECT * FROM table2 WHERE id = 10",
         OutOption::File(std::fs::File::create("out.csv").expect("Failed to create a file")),
     )
     .expect("Failed to index a table");
 
 // Use builder pattern to construct query and index a table
-let query = Query::empty("table2")
+let query = Query::empty("table1")
     .columns(vec!["id", "address"])
     .predicate(Predicate::new("id", Operator::Equal).args(vec!["10"]))
     .predicate(
