@@ -1,10 +1,8 @@
 ### TODO
 
-* [x] Use dcsv cate for better csv spec and better maintainability
-* [x] Ditch thiserror + indexmap
-* [x] Make filter non panicking
+* [ ] Support quotes in query so that user can utilize whitespace
 
-* [ ] To think about it... I think operate function was inherently failure.
+* [ ] To think about it... I think "operate" function was inherently failure.
 Since it always require the query syntax to expect column name first.
 	- 'SELECT * FROM table WHERE col-name = hello' works but,
 	- 'SELECT * FROM table WHERE hello = col-name' doesn't work
@@ -15,7 +13,6 @@ Is this ok? Hmm... I think it might be ok. The reasons are
 * [ ] Join functionality
 * [ ] <OR> variant for predicate
 - Currently all predicate are AND variant
-* [ ] Datetime
 * [ ] Evaluation process would be useful
 * [x] Transpose
 * [x] Offset, Limit
@@ -42,3 +39,6 @@ Is this ok? Hmm... I think it might be ok. The reasons are
 * [x] More ergonomic print header syntax
 * [x] Support quote rule
 	- Kinda..., It simply removes all double quotes on real operation
+* [x] Use dcsv cate for better csv spec and better maintainability
+* [x] Ditch thiserror + indexmap
+* [x] Make filter non panicking

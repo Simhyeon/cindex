@@ -1,7 +1,9 @@
+# 0.4.2
+
 # 0.4.1
 
-- Ditched several dependencies in favor of [dcsv](https://crates.io/crate/dcsv)
+- Intern : Ditched several dependencies in favor of [dcsv](https://crates.io/crate/dcsv)
 crate.
-- Disabled add\_table for dcsv compatibility. Automatic limiter setting will be
+- Change : Disabled add\_table for dcsv compatibility. Automatic limiter setting will be
 added later.
-- Improved like syntax performance with precompiled regex
+- Ergono : Improved "like" syntax performance with precompiled regex
