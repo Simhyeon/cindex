@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::error::CIndexError;
 use crate::CIndexResult;
 
@@ -25,5 +27,15 @@ impl OrderType {
 
 pub enum ColumnVariant<'a> {
     Real(&'a str),
-    Supplement,
+    Supplement(&'a str),
+}
+
+impl<'a> Display for ColumnVariant<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let dis = match self {
+            Self::Real(col) => col.to_string(),
+            Self::Supplement(col) => col.to_string(),
+        };
+        write!(f, "{}", dis)
+    }
 }
