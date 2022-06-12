@@ -11,7 +11,7 @@ use std::{fs::File, io::Read};
 
 /// Entry struct for indexing csv tables
 pub struct Indexer {
-    tables: HashMap<String, Table>,
+    pub(crate) tables: HashMap<String, Table>,
     use_unix_newline: bool,
 }
 
@@ -93,64 +93,72 @@ impl Indexer {
                     "Table \"{}\" doesn't exist",
                     query.table_name
                 )))?;
+
+        // Query
         let queried_records = table.query(&query)?;
 
-        let target_columns: Option<Vec<ColumnVariant>> = if let Some(ref cols) = query.column_names
-        {
-            if cols.len() > 0 && cols[0] == "*" {
-                None
-            } else {
-                #[cfg(feature = "rayon")]
-                let iter = cols.par_iter();
-                #[cfg(not(feature = "rayon"))]
-                let iter = cols.iter();
+        let mut all_column = false;
+        let mut targets: Vec<ColumnVariant> = vec![];
+        let mut supplment = vec![];
 
-                // If supplement is given
-                // add extra columns
-                let supplement = query.flags.contains(QueryFlags::SUP);
-                let collection: Vec<_> = if supplement {
-                    iter.map(|i| {
-                        if let Some(col) = table.header.get(i) {
-                            ColumnVariant::Real(col)
-                        } else {
-                            ColumnVariant::Supplement
-                        }
-                    })
-                    .collect()
+        if let Some(ref cols) = query.column_names {
+            for col in cols {
+                if col == "*" {
+                    all_column = true;
+                    continue;
+                }
+                if let Some(col) = table.header.get(col) {
+                    if !all_column {
+                        targets.push(ColumnVariant::Real(col));
+                    }
                 } else {
-                    iter.map(|i| -> Result<ColumnVariant, CIndexError> {
-                        let index = ColumnVariant::Real(table.header.get(i).ok_or(
-                            CIndexError::InvalidColumn(format!("No such column \"{}\"", i)),
-                        )?);
-                        Ok(index)
-                    })
-                    .collect::<CIndexResult<Vec<_>>>()?
-                };
-
-                Some(collection)
+                    if query.flags.contains(QueryFlags::SUP) {
+                        supplment.push(col);
+                    } else {
+                        return Err(CIndexError::InvalidQueryStatement(format!(
+                            "Column \"{}\" doesn't exist",
+                            col
+                        )));
+                    }
+                }
             }
-        } else {
-            None
-        };
+        }
+
+        // Override target columsn if "*" was given as column name
+        if all_column {
+            targets = table
+                .data
+                .columns
+                .iter()
+                .map(|c| ColumnVariant::Real(c.name.as_str()))
+                .collect();
+        }
+
+        // Append supplement columns
+        if supplment.len() > 0 {
+            for sup in supplment {
+                targets.push(ColumnVariant::Supplement(sup));
+            }
+        }
 
         // Print headers
         if query.flags.contains(QueryFlags::PHD) {
-            mapped_records.push(table.data.columns.iter().map(|c| c.name.clone()).collect());
+            if let Some(map) = query.column_map {
+                if map.len() != targets.len() {
+                    return Err(CIndexError::InvalidQueryStatement(format!(
+                        "Headermap should have a same length with target columns"
+                    )));
+                } else {
+                    mapped_records.push(map);
+                }
+            } else {
+                mapped_records.push(targets.iter().map(|col| col.to_string()).collect());
+            }
         }
 
+        // Only get target values from rows
         for record in queried_records {
-            if let Some(cols) = &target_columns {
-                mapped_records.push(self.row_with_columns(record, cols))
-            } else {
-                mapped_records.push(
-                    table
-                        .data
-                        .columns
-                        .iter()
-                        .map(|col| record.get_cell_value(&col.name).unwrap().to_string())
-                        .collect(),
-                )
-            }
+            mapped_records.push(self.row_with_columns(record, &targets)?);
         }
 
         // Tranpose if given TP Flag
@@ -164,15 +172,28 @@ impl Indexer {
             .collect())
     }
 
-    fn row_with_columns(&self, row: &Row, columns: &Vec<ColumnVariant>) -> Vec<String> {
+    fn row_with_columns(
+        &self,
+        row: &Row,
+        columns: &Vec<ColumnVariant>,
+    ) -> CIndexResult<Vec<String>> {
         let mut formatted = vec![];
 
         for col in columns {
             if let ColumnVariant::Real(key) = col {
-                formatted.push(row.get_cell_value(key).unwrap().to_string());
+                formatted.push(
+                    row.get_cell_value(key)
+                        .ok_or(CIndexError::InvalidColumn(format!(
+                            "Failed to row value from column \"{}\"",
+                            key
+                        )))?
+                        .to_string(),
+                );
+            } else {
+                formatted.push(String::new());
             }
         }
-        formatted
+        Ok(formatted)
     }
 
     // Tranpose
