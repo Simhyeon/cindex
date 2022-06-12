@@ -10,35 +10,19 @@ mod tests {
 
         // Add table without types
         // Default types for every columns are "Text"
-        indexer.add_table_fast("table1", File::open("test.csv").expect("Failed to open"))?;
+        indexer.add_table_fast(
+            "table1",
+            "a,b,c
+1,2,3"
+                .as_bytes(),
+        )?;
 
         // Indexing
-
-        // Create query object and print output to terminal
-        //let query = Query::from_str(
-        //r#"SELECT c,b,a,d,e FROM table1 ORDER BY a DESC WHERE c IN 111 333 224 FLAG SUP PHD"#,
-        //)?;
-        ////indexer.index(query, OutOption::Term)?;
-        //indexer.index(
-        //Query::from_str(
-        //"SELECT * FROM table1
-        //ORDER BY a ASEC
-        //OFFSET 3
-        //FLAG PHD",
-        //)?,
-        //OutOption::Term,
-        //)?;
-        //println!("---");
-        //indexer.index(
-        //Query::from_str(
-        //"SELECT * FROM table1
-        //ORDER BY a ASEC
-        //FLAG PHD TP",
-        //)?,
-        //OutOption::Term,
-        //)?;
-
-        indexer.index_raw("SELECT * FROM table1 WHERE a = 1 FLAG PHD", OutOption::Term)?;
+        //indexer.index_raw("SELECT * FROM table1 FLAG PHD", OutOption::Term)?;
+        indexer.index_raw(
+            "SELECT a,b,d,e FROM table1 HMAP first,second,third,fourth WHERE a = 1 FLAG PHD SUP",
+            OutOption::Term,
+        )?;
 
         Ok(())
     }

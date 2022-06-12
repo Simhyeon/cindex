@@ -1,6 +1,13 @@
 ### TODO
 
-* [ ] Support quotes in query so that user can utilize whitespace
+* [x] Made constructor's error handable
+
+* [ ] Fix Dcsv port bugs
+	* [x] BUG : Currently select column is broken for headers
+	* [x] BUG : Hmap doesn't work
+	* [x] FET : Make * detected among select args
+	* [x] FET : Wildcard can be applied in between because why not?
+* [x] Support quotes in query so that user can utilize whitespace
 
 * [ ] To think about it... I think "operate" function was inherently failure.
 Since it always require the query syntax to expect column name first.
