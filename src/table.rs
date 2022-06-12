@@ -20,7 +20,12 @@ impl Table {
         let data = Reader::new()
             .has_header(true)
             .read_from_stream(table_content)
-            .unwrap();
+            .map_err(|err| {
+                CIndexError::InvalidTableInput(format!(
+                    "Failed to read table contents with error : {}",
+                    err
+                ))
+            })?;
 
         Ok(Self {
             header: HashSet::from_iter(data.columns.iter().map(|c| c.name.clone())),
@@ -53,6 +58,8 @@ impl Table {
 
         let mut queried: Vec<&Row> = iter.filter(|row| self.filter(row, predicates)).collect();
 
+        // This is already a queried records, which means columns already persists for every
+        // records, therefore it is safe to get value and unwrap
         match &query.order_type {
             OrderType::Desc(col) | OrderType::Asec(col) => {
                 if self.header.contains(col) {
@@ -95,6 +102,7 @@ impl Table {
     }
 
     /// Iterator method
+    // This should not return result because it is usesd in filter_adopter
     fn filter(&self, row: &Row, predicates: &Vec<Predicate>) -> bool {
         for pre in predicates {
             let column = pre.column.as_str();
@@ -116,6 +124,7 @@ fn operate_value(comparator: &str, values: &Vec<String>, pre: &Predicate) -> boo
     let arg = values[0].as_str();
     let operation = &pre.operation;
     match operation {
+        // It is safe to unwrap, because Like panics when matcher doesn't compiled
         Operator::Like => pre.matcher.as_ref().unwrap().is_match(var),
         Operator::Bigger => var > arg,
         Operator::BiggerOrEqual => var >= arg,
