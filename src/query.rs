@@ -202,8 +202,8 @@ pub enum Operator {
 }
 
 impl Operator {
-    pub fn from_token(token: &str) -> Self {
-        match token.to_lowercase().as_str() {
+    pub fn from_token(token: &str) -> CIndexResult<Self> {
+        let op = match token.to_lowercase().as_str() {
             ">" => Self::Bigger,
             ">=" => Self::BiggerOrEqual,
             "<" => Self::Smaller,
@@ -213,8 +213,14 @@ impl Operator {
             "between" => Self::Between,
             "in" => Self::In,
             "like" => Self::Like,
-            _ => panic!("NOt implemented"),
-        }
+            _ => {
+                return Err(CIndexError::InvalidQueryStatement(format!(
+                    "Unsupported operator \"{}\"",
+                    &token
+                )))
+            }
+        };
+        return Ok(op);
     }
 }
 
