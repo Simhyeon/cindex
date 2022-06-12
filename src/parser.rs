@@ -47,13 +47,13 @@ impl Parser {
     }
 
     pub fn parse(&mut self, query: &str) -> CIndexResult<Query> {
-        let mut split = query.split_whitespace();
+        let mut split = tokens_with_quote(query).into_iter();
 
         // SELECT columns FROM TABLE WHERE arguments
         while let Some(word) = split.next() {
             // If no cursor change, then
-            if !self.set_cursor(word) {
-                self.update_state(word)?;
+            if !self.set_cursor(&word) {
+                self.update_state(&word)?;
             }
         }
 
@@ -156,7 +156,7 @@ impl Parser {
                 if self.state.raw_column_map == None {
                     self.state.raw_column_map.replace(String::new());
                 }
-                let arg = arg.replace("_", " ");
+                // This is safe to use unwrap
                 self.state.raw_column_map.as_mut().unwrap().push_str(&arg);
             }
             ParseCursor::Flag => {
@@ -206,7 +206,7 @@ impl Parser {
                     w_cursor = WhereCursor::Operator;
                 }
                 WhereCursor::Operator => {
-                    p.set_operator(Operator::from_token(token));
+                    p.set_operator(Operator::from_token(token)?);
                     w_cursor = WhereCursor::Right;
                 }
                 WhereCursor::Right => {
@@ -224,11 +224,19 @@ impl Parser {
         Ok(Some(predicates))
     }
 
-    /// Apply chores for predciat
+    /// Apply chores for predicate
     fn predicate_chore(predicate: &mut Predicate) -> CIndexResult<()> {
         // Precompile regex
         if Operator::Like == predicate.operation {
-            predicate.set_matcher(&predicate.arguments.last().unwrap().clone())?;
+            predicate.set_matcher(
+                &predicate
+                    .arguments
+                    .last()
+                    .ok_or(CIndexError::InvalidQueryStatement(
+                        "Like requires argument to be a valid query".to_owned(),
+                    ))?
+                    .clone(),
+            )?;
         }
 
         if predicate.arguments.len() < 1 {
@@ -252,4 +260,57 @@ impl Parser {
     fn without_dquotes(&self, src: &str) -> String {
         src.replace('"', "")
     }
+}
+
+/// Parse string with quote-able tokens
+///
+/// This strips surround quote.
+fn tokens_with_quote(source: &str) -> Vec<String> {
+    let mut tokens = vec![];
+    let mut on_quote = false;
+    let mut previous = ' ';
+    let mut chunk = String::new();
+    let mut iter = source.chars().peekable();
+    while let Some(ch) = iter.next() {
+        match ch {
+            // Escape character should not bed added
+            '\\' => {
+                if previous == '\\' {
+                    previous = ' '; // Reset previous
+                } else {
+                    on_quote = !on_quote;
+                    previous = ch;
+                    continue;
+                }
+            }
+            '\'' => {
+                // Add literal quote if previous was escape character
+                if previous == '\\' {
+                    previous = ' '; // Reset previous
+                } else {
+                    on_quote = !on_quote;
+                    previous = ch;
+                    continue;
+                }
+            }
+            ' ' => {
+                if !on_quote {
+                    // If previous is also blank. skip
+                    if previous == ' ' {
+                        continue;
+                    }
+                    let flushed = std::mem::replace(&mut chunk, String::new());
+                    tokens.push(flushed);
+                    previous = ch;
+                    continue;
+                }
+            }
+            _ => previous = ch,
+        }
+        chunk.push(ch);
+    }
+    if !chunk.is_empty() {
+        tokens.push(chunk);
+    }
+    tokens
 }
