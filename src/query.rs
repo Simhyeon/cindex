@@ -8,7 +8,7 @@ use regex::Regex;
 #[derive(Debug)]
 pub struct Query {
     pub table_name: String,
-    pub column_names: Option<Vec<String>>,
+    pub column_names: Vec<String>,
     pub column_map: Option<Vec<String>>,
     pub(crate) predicates: Option<Vec<Predicate>>,
     pub(crate) order_type: OrderType,
@@ -29,7 +29,7 @@ impl Query {
     pub fn empty(table_name: &str) -> Self {
         Self {
             table_name: table_name.to_owned(),
-            column_names: None,
+            column_names: vec![],
             predicates: None,
             order_type: OrderType::None,
             joined_tables: None,
@@ -42,7 +42,7 @@ impl Query {
     pub fn build() -> Self {
         Self {
             table_name: String::new(),
-            column_names: None,
+            column_names: vec![],
             predicates: None,
             joined_tables: None,
             order_type: OrderType::None,
@@ -53,8 +53,7 @@ impl Query {
     }
 
     pub fn columns(mut self, colum_names: Vec<impl AsRef<str>>) -> Self {
-        self.column_names
-            .replace(colum_names.iter().map(|s| s.as_ref().to_owned()).collect());
+        self.column_names = colum_names.iter().map(|s| s.as_ref().to_owned()).collect();
         self
     }
 
@@ -69,7 +68,7 @@ impl Query {
 
     pub fn new(
         table_name: String,
-        column_names: Option<Vec<String>>,
+        column_names: Vec<String>,
         predicates: Option<Vec<Predicate>>,
         joined_tables: Option<Vec<String>>,
         order_type: OrderType,
