@@ -9,7 +9,7 @@ pub struct Parser {
 #[derive(Default)]
 pub struct ParseState {
     table_name: String,
-    raw_column_names: Option<String>,
+    raw_column_names: String,
     raw_column_map: Option<String>,
     where_args: Vec<String>,
     joined: Option<Vec<String>>,
@@ -58,7 +58,7 @@ impl Parser {
         }
 
         let table_name = std::mem::replace(&mut self.state.table_name, String::new());
-        let columns = std::mem::replace(&mut self.state.raw_column_names, None);
+        let columns = std::mem::replace(&mut self.state.raw_column_names, String::new());
         let predicates = self.get_predicates()?;
         let joined = std::mem::replace(&mut self.state.joined, None);
         let order_type = match self.state.order_by.len() {
@@ -74,11 +74,7 @@ impl Parser {
             .map(|s| s.split(',').map(|s| s.to_owned()).collect::<Vec<String>>());
 
         // Split
-        let columns = if let Some(raw) = columns {
-            Some(raw.split(',').map(|v| v.trim().to_owned()).collect())
-        } else {
-            None
-        };
+        let columns = columns.split(',').map(|s| s.to_owned()).collect::<Vec<_>>();
 
         Ok(Query::new(
             table_name,
@@ -122,21 +118,13 @@ impl Parser {
     }
 
     fn update_state(&mut self, arg: &str) -> CIndexResult<()> {
-        let arg = self.without_dquotes(arg);
         match self.cursor {
             ParseCursor::From => {
                 self.state.table_name = arg.to_owned();
             }
             ParseCursor::Select => {
-                if self.state.raw_column_names == None {
-                    self.state.raw_column_names.replace(String::new());
-                }
                 // This is safe to use unwrap
-                self.state
-                    .raw_column_names
-                    .as_mut()
-                    .unwrap()
-                    .push_str(&format!("{} ", arg));
+                self.state.raw_column_names = arg.to_owned();
             }
             ParseCursor::Where => {
                 self.state.where_args.push(arg.to_owned());
@@ -255,10 +243,6 @@ impl Parser {
             "OR" => Some(Separator::Or),
             _ => None,
         }
-    }
-
-    fn without_dquotes(&self, src: &str) -> String {
-        src.replace('"', "")
     }
 }
 

@@ -101,25 +101,23 @@ impl Indexer {
         let mut targets: Vec<ColumnVariant> = vec![];
         let mut supplment = vec![];
 
-        if let Some(ref cols) = query.column_names {
-            for col in cols {
-                if col == "*" {
-                    all_column = true;
-                    continue;
+        for col in query.column_names {
+            if col == "*" {
+                all_column = true;
+                continue;
+            }
+            if let Some(col) = table.header.get(&col) {
+                if !all_column {
+                    targets.push(ColumnVariant::Real(col));
                 }
-                if let Some(col) = table.header.get(col) {
-                    if !all_column {
-                        targets.push(ColumnVariant::Real(col));
-                    }
+            } else {
+                if query.flags.contains(QueryFlags::SUP) {
+                    supplment.push(col);
                 } else {
-                    if query.flags.contains(QueryFlags::SUP) {
-                        supplment.push(col);
-                    } else {
-                        return Err(CIndexError::InvalidQueryStatement(format!(
-                            "Column \"{}\" doesn't exist",
-                            col
-                        )));
-                    }
+                    return Err(CIndexError::InvalidQueryStatement(format!(
+                                "Column \"{}\" doesn't exist",
+                                col
+                    )));
                 }
             }
         }
