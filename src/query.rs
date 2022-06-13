@@ -45,6 +45,12 @@ impl Query {
         }
     }
 
+    /// Set table name
+    pub fn table(mut self, name: &str) -> Self {
+        self.table_name = name.to_string();
+        self
+    }
+
     /// Append target columns as builder pattern
     pub fn columns(mut self, colum_names: Vec<impl AsRef<str>>) -> Self {
         self.column_names = colum_names.iter().map(|s| s.as_ref().to_owned()).collect();
