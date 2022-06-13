@@ -27,7 +27,7 @@ impl OrderType {
 
 pub enum ColumnVariant<'a> {
     Real(&'a str),
-    Supplement(&'a str),
+    Supplement(String),
 }
 
 impl<'a> Display for ColumnVariant<'a> {
