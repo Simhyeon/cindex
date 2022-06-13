@@ -62,8 +62,8 @@ impl Parser {
         let predicates = self.get_predicates()?;
         let joined = std::mem::replace(&mut self.state.joined, None);
         let order_type = match self.state.order_by.len() {
+            1 => OrderType::from_str("ASEC", &self.state.order_by[0])?, // Default ordering is ASEC
             2 => OrderType::from_str(&self.state.order_by[1], &self.state.order_by[0])?,
-            1 => OrderType::from_str(&self.state.order_by[1], "ASEC")?, // Default ordering is ASEC
             len if len > 2 => {
                 OrderType::from_str(&self.state.order_by[1], &self.state.order_by[0])?
             }
