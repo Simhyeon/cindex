@@ -47,18 +47,18 @@ impl Parser {
     }
 
     pub fn parse(&mut self, query: &str) -> CIndexResult<Query> {
-        let mut split = tokens_with_quote(query).into_iter();
+        let split = tokens_with_quote(query).into_iter();
 
         // SELECT columns FROM TABLE WHERE arguments
-        while let Some(word) = split.next() {
+        for word in split {
             // If no cursor change, then
             if !self.set_cursor(&word) {
                 self.update_state(&word)?;
             }
         }
 
-        let table_name = std::mem::replace(&mut self.state.table_name, String::new());
-        let columns = std::mem::replace(&mut self.state.raw_column_names, String::new());
+        let table_name = std::mem::take(&mut self.state.table_name);
+        let columns = std::mem::take(&mut self.state.raw_column_names);
         let predicates = self.get_predicates()?;
         let joined = std::mem::replace(&mut self.state.joined, None);
         let order_type = match self.state.order_by.len() {
@@ -83,7 +83,7 @@ impl Parser {
             joined,
             order_type,
             column_map,
-            self.state.flags,
+            std::mem::take(&mut self.state.flags),
             self.state.range,
         ))
     }
@@ -145,19 +145,23 @@ impl Parser {
                     self.state.raw_column_map.replace(String::new());
                 }
                 // This is safe to use unwrap
-                self.state.raw_column_map.as_mut().unwrap().push_str(&arg);
+                self.state.raw_column_map.as_mut().unwrap().push_str(arg);
             }
             ParseCursor::Flag => {
-                self.state.flags.set_str(&arg)?;
+                self.state.flags.set(arg)?;
             }
             ParseCursor::Offset => {
                 self.state.range.0 = arg.parse().map_err(|_| {
-                    CIndexError::InvalidTableName(format!("Limit's argument should be usize value"))
+                    CIndexError::InvalidTableName(
+                        "Limit's argument should be usize value".to_owned(),
+                    )
                 })?;
             }
             ParseCursor::Limit => {
                 self.state.range.1 = arg.parse().map_err(|_| {
-                    CIndexError::InvalidTableName(format!("Limit's argument should be usize value"))
+                    CIndexError::InvalidTableName(
+                        "Limit's argument should be usize value".to_owned(),
+                    )
                 })?;
             }
             ParseCursor::None | ParseCursor::OrderBy(false) => (),
@@ -220,14 +224,16 @@ impl Parser {
                 &predicate
                     .arguments
                     .last()
-                    .ok_or(CIndexError::InvalidQueryStatement(
-                        "Like requires argument to be a valid query".to_owned(),
-                    ))?
+                    .ok_or_else(|| {
+                        CIndexError::InvalidQueryStatement(
+                            "Like requires argument to be a valid query".to_owned(),
+                        )
+                    })?
                     .clone(),
             )?;
         }
 
-        if predicate.arguments.len() < 1 {
+        if predicate.arguments.is_empty() {
             return Err(CIndexError::InvalidQueryStatement(format!(
                 "Query has insufficient arguments : {:?}",
                 predicate
@@ -254,8 +260,8 @@ fn tokens_with_quote(source: &str) -> Vec<String> {
     let mut on_quote = false;
     let mut previous = ' ';
     let mut chunk = String::new();
-    let mut iter = source.chars().peekable();
-    while let Some(ch) = iter.next() {
+    let iter = source.chars().peekable();
+    for ch in iter {
         match ch {
             // Escape character should not bed added
             '\\' => {
@@ -283,7 +289,7 @@ fn tokens_with_quote(source: &str) -> Vec<String> {
                     if previous == ' ' {
                         continue;
                     }
-                    let flushed = std::mem::replace(&mut chunk, String::new());
+                    let flushed = std::mem::take(&mut chunk);
                     tokens.push(flushed);
                     previous = ch;
                     continue;
