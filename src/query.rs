@@ -1,8 +1,8 @@
 use crate::error::{CIndexError, CIndexResult};
 use crate::models::OrderType;
 use crate::parser::Parser;
-use bitflags::bitflags;
 use regex::Regex;
+use std::collections::HashSet;
 
 /// Query to index a table
 #[derive(Debug)]
@@ -21,24 +21,17 @@ pub struct Query {
     joined_tables: Option<Vec<String>>,
 }
 
+impl std::str::FromStr for Query {
+    type Err = CIndexError;
+
+    /// This creates parser inside.
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Parser::new().parse(s)
+    }
+}
+
 impl Query {
-    pub fn from_str(query: &str) -> CIndexResult<Self> {
-        Parser::new().parse(query)
-    }
-
-    pub fn empty(table_name: &str) -> Self {
-        Self {
-            table_name: table_name.to_owned(),
-            column_names: vec![],
-            predicates: None,
-            order_type: OrderType::None,
-            joined_tables: None,
-            column_map: None,
-            flags: QueryFlags::empty(),
-            range: (0, 0),
-        }
-    }
-
+    /// Build an empty query
     pub fn build() -> Self {
         Self {
             table_name: String::new(),
@@ -47,18 +40,20 @@ impl Query {
             joined_tables: None,
             order_type: OrderType::None,
             column_map: None,
-            flags: QueryFlags::empty(),
+            flags: QueryFlags::new(),
             range: (0, 0),
         }
     }
 
+    /// Append target columns as builder pattern
     pub fn columns(mut self, colum_names: Vec<impl AsRef<str>>) -> Self {
         self.column_names = colum_names.iter().map(|s| s.as_ref().to_owned()).collect();
         self
     }
 
+    /// Append predicate as builder pattern
     pub fn predicate(mut self, predicate: Predicate) -> Self {
-        if let None = self.predicates {
+        if self.predicates.is_none() {
             self.predicates = Some(vec![]);
         }
         // This is safe to unwrap
@@ -66,7 +61,10 @@ impl Query {
         self
     }
 
-    pub fn new(
+    // This is ok to have too many arguments because it is inner usage only
+    /// Create a query with every information
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn new(
         table_name: String,
         column_names: Vec<String>,
         predicates: Option<Vec<Predicate>>,
@@ -89,7 +87,7 @@ impl Query {
     }
 }
 
-/// Predicate to decide whether a specific row should be included
+/// Predicate to decide whether a specific row qualifies a query or not
 #[derive(Debug)]
 pub struct Predicate {
     pub(crate) separator: Separator,
@@ -101,6 +99,7 @@ pub struct Predicate {
 
 impl Predicate {
     // <BUILDER>
+    /// Create empty predicate
     pub fn build() -> Self {
         Self {
             separator: Separator::And,
@@ -126,6 +125,7 @@ impl Predicate {
         self
     }
 
+    /// Create regex matcher from regex pattern
     pub fn matcher(mut self, pattern: &str) -> CIndexResult<Self> {
         self.matcher.replace(Regex::new(pattern).map_err(|_| {
             CIndexError::InvalidQueryStatement(format!("Invalid regex pattern : \"{}\"", pattern))
@@ -133,6 +133,7 @@ impl Predicate {
         Ok(self)
     }
 
+    /// Append raw args ( String )
     pub fn raw_args(mut self, args: &str) -> Self {
         self.arguments = args
             .split(' ')
@@ -219,7 +220,7 @@ impl Operator {
                 )))
             }
         };
-        return Ok(op);
+        Ok(op)
     }
 }
 
@@ -229,37 +230,50 @@ pub enum Separator {
     Or,
 }
 
-bitflags! {
-    pub struct QueryFlags: u32 {
-        const PHD = 0b00000001; // Print header
-        const TP  = 0b00000010; // Tranpose
-        const SUP = 0b00000100; // Supplement
-    }
+#[derive(Debug)]
+pub struct QueryFlags {
+    flags: HashSet<QueryFlagType>,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub enum QueryFlagType {
+    PHD, // Print header
+    SUP, // Supplement
+    TP,  // Tranpose
 }
 
 impl Default for QueryFlags {
     fn default() -> Self {
-        Self::empty()
+        Self::new()
     }
 }
 
 impl QueryFlags {
+    pub fn new() -> Self {
+        Self {
+            flags: HashSet::new(),
+        }
+    }
     /// Clear all bit flags
     pub fn clear(&mut self) {
-        self.bits = 0;
+        self.flags.clear();
     }
 
-    pub fn set_str(&mut self, flag: &str) -> CIndexResult<()> {
+    pub fn contains(&self, flag: QueryFlagType) -> bool {
+        self.flags.contains(&flag)
+    }
+
+    pub fn set(&mut self, flag: &str) -> CIndexResult<()> {
         match flag.to_lowercase().as_str() {
-            "phd" | "print-header" => self.set(QueryFlags::PHD, true),
-            "sup" | "supplment" => self.set(QueryFlags::SUP, true),
-            "tp" | "tranpose" => self.set(QueryFlags::TP, true),
+            "phd" | "print-header" => self.flags.insert(QueryFlagType::PHD),
+            "sup" | "supplment" => self.flags.insert(QueryFlagType::SUP),
+            "tp" | "tranpose" => self.flags.insert(QueryFlagType::TP),
             _ => {
-                return Err(CIndexError::InvalidQueryStatement(format!(
-                    "Invalid query flag"
-                )))
+                return Err(CIndexError::InvalidQueryStatement(
+                    "Invalid query flag".to_string(),
+                ));
             }
-        }
+        };
         Ok(())
     }
 }
