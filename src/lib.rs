@@ -1,3 +1,5 @@
+#[cfg(feature = "binary")]
+mod cli;
 /// # Cindex, a csv indexer
 ///
 /// Cindex is a easy to use csv indexer with SQL-like simple query support.
@@ -128,9 +130,8 @@ mod query;
 mod table;
 #[cfg(test)]
 mod test;
-#[cfg(feature ="binary")]
-mod cli;
 
+pub use dcsv::ReaderOption;
 pub use error::{CIndexError, CIndexResult};
 pub use indexer::{Indexer, OutOption};
 pub use query::{Operator, Predicate, Query};
