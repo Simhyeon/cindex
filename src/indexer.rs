@@ -1,18 +1,26 @@
 use crate::models::ColumnVariant;
-use crate::query::{Query, QueryFlags};
+use crate::query::{Query, QueryFlagType};
 use crate::table::Table;
+use crate::ReaderOption;
 use crate::{consts, CIndexError, CIndexResult};
 use dcsv::Row;
 #[cfg(feature = "rayon")]
 use rayon::prelude::*;
 use std::collections::HashMap;
-use std::io::Write;
-use std::{fs::File, io::Read};
+use std::fs::File;
+use std::io::{BufRead, Write};
+use std::str::FromStr;
 
 /// Entry struct for indexing csv tables
 pub struct Indexer {
     pub(crate) tables: HashMap<String, Table>,
     use_unix_newline: bool,
+}
+
+impl Default for Indexer {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Indexer {
@@ -48,16 +56,36 @@ impl Indexer {
         self.tables.remove(table_name);
     }
 
-    /// Add table without header
-    pub fn add_table_fast(&mut self, table_name: &str, input: impl Read) -> CIndexResult<()> {
-        self.add_table_internal(table_name, input)
+    /// Add table
+    pub fn add_table(&mut self, table_name: &str, input: impl BufRead) -> CIndexResult<()> {
+        self.tables
+            .insert(table_name.to_owned(), Table::new(input)?);
+        Ok(())
     }
 
-    fn add_table_internal(&mut self, table_name: &str, mut input: impl Read) -> CIndexResult<()> {
-        let mut table_content = String::new();
-        input.read_to_string(&mut table_content)?;
+    pub fn add_table_with_option(
+        &mut self,
+        table_name: &str,
+        input: impl BufRead,
+        reader_option: ReaderOption,
+    ) -> CIndexResult<()> {
         self.tables
-            .insert(table_name.to_owned(), Table::new(table_content.as_bytes())?);
+            .insert(table_name.to_owned(), Table::build(input, reader_option)?);
+        Ok(())
+    }
+
+    // TODO
+    /// Add table with header
+    pub fn add_table_with_headers(
+        &mut self,
+        table_name: &str,
+        input: impl BufRead,
+        headers: &[String],
+    ) -> CIndexResult<()> {
+        self.tables.insert(
+            table_name.to_owned(),
+            Table::new_with_headers(input, headers)?,
+        );
         Ok(())
     }
 
@@ -86,13 +114,9 @@ impl Indexer {
     /// Internal function
     fn index_table(&self, query: Query) -> CIndexResult<Vec<Vec<String>>> {
         let mut mapped_records: Vec<Vec<String>> = vec![];
-        let table =
-            self.tables
-                .get(query.table_name.as_str())
-                .ok_or(CIndexError::InvalidTableName(format!(
-                    "Table \"{}\" doesn't exist",
-                    query.table_name
-                )))?;
+        let table = self.tables.get(query.table_name.as_str()).ok_or_else(|| {
+            CIndexError::InvalidTableName(format!("Table \"{}\" doesn't exist", query.table_name))
+        })?;
 
         // Query
         let queried_records = table.query(&query)?;
@@ -110,15 +134,13 @@ impl Indexer {
                 if !all_column {
                     targets.push(ColumnVariant::Real(col));
                 }
+            } else if query.flags.contains(QueryFlagType::SUP) {
+                supplment.push(col);
             } else {
-                if query.flags.contains(QueryFlags::SUP) {
-                    supplment.push(col);
-                } else {
-                    return Err(CIndexError::InvalidQueryStatement(format!(
-                                "Column \"{}\" doesn't exist",
-                                col
-                    )));
-                }
+                return Err(CIndexError::InvalidQueryStatement(format!(
+                    "Column \"{}\" doesn't exist",
+                    col
+                )));
             }
         }
 
@@ -133,19 +155,19 @@ impl Indexer {
         }
 
         // Append supplement columns
-        if supplment.len() > 0 {
+        if !supplment.is_empty() {
             for sup in supplment {
                 targets.push(ColumnVariant::Supplement(sup));
             }
         }
 
         // Print headers
-        if query.flags.contains(QueryFlags::PHD) {
+        if query.flags.contains(QueryFlagType::PHD) {
             if let Some(map) = query.column_map {
                 if map.len() != targets.len() {
-                    return Err(CIndexError::InvalidQueryStatement(format!(
-                        "Headermap should have a same length with target columns"
-                    )));
+                    return Err(CIndexError::InvalidQueryStatement(
+                        "Headermap should have a same length with target columns".to_string(),
+                    ));
                 } else {
                     mapped_records.push(map);
                 }
@@ -160,7 +182,7 @@ impl Indexer {
         }
 
         // Tranpose if given TP Flag
-        if query.flags.contains(QueryFlags::TP) {
+        if query.flags.contains(QueryFlagType::TP) {
             mapped_records = self.tranpose_records(mapped_records);
         }
 
@@ -181,10 +203,12 @@ impl Indexer {
             if let ColumnVariant::Real(key) = col {
                 formatted.push(
                     row.get_cell_value(key)
-                        .ok_or(CIndexError::InvalidColumn(format!(
-                            "Failed to row value from column \"{}\"",
-                            key
-                        )))?
+                        .ok_or_else(|| {
+                            CIndexError::InvalidColumn(format!(
+                                "Failed to row value from column \"{}\"",
+                                key
+                            ))
+                        })?
                         .to_string(),
                 );
             } else {
@@ -197,7 +221,7 @@ impl Indexer {
     // Tranpose
     // https://stackoverflow.com/questions/64498617/how-to-transpose-a-vector-of-vectors-in-rust
     // Thank you stackoverflow ;)
-    fn tranpose_records<'a>(&'a self, v: Vec<Vec<String>>) -> Vec<Vec<String>> {
+    fn tranpose_records(&self, v: Vec<Vec<String>>) -> Vec<Vec<String>> {
         let len = v[0].len();
         let mut iters: Vec<_> = v.into_iter().map(|n| n.into_iter()).collect();
         (0..len)
@@ -210,6 +234,7 @@ impl Indexer {
             .collect()
     }
 
+    /// Write content to out option
     fn write(&self, content: &str, out_option: &mut OutOption) -> CIndexResult<()> {
         match out_option {
             OutOption::Term => std::io::stdout().write_all(content.as_bytes())?,
