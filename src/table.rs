@@ -1,6 +1,7 @@
 use crate::error::{CIndexError, CIndexResult};
 use crate::models::OrderType;
 use crate::query::Query;
+use crate::ReaderOption;
 use crate::{Operator, Predicate};
 use dcsv::{Reader, Row, VirtualData};
 #[cfg(feature = "rayon")]
@@ -10,15 +11,53 @@ use std::fmt::Display;
 use std::io::BufRead;
 use std::iter::FromIterator;
 
-pub struct Table {
+pub(crate) struct Table {
     pub(crate) header: HashSet<String>,
     pub(crate) data: VirtualData,
 }
 
 impl Table {
+    pub fn build(table_content: impl BufRead, reader_option: ReaderOption) -> CIndexResult<Self> {
+        let data = Reader::new()
+            .with_option(reader_option)
+            .read_from_stream(table_content)
+            .map_err(|err| {
+                CIndexError::InvalidTableInput(format!(
+                    "Failed to read table contents with error : {}",
+                    err
+                ))
+            })?;
+
+        Ok(Self {
+            header: HashSet::from_iter(data.columns.iter().map(|c| c.name.clone())),
+            data,
+        })
+    }
+
     pub fn new(table_content: impl BufRead) -> CIndexResult<Self> {
         let data = Reader::new()
+            .consume_dquote(true)
+            .ignore_empty_row(true)
             .has_header(true)
+            .read_from_stream(table_content)
+            .map_err(|err| {
+                CIndexError::InvalidTableInput(format!(
+                    "Failed to read table contents with error : {}",
+                    err
+                ))
+            })?;
+
+        Ok(Self {
+            header: HashSet::from_iter(data.columns.iter().map(|c| c.name.clone())),
+            data,
+        })
+    }
+
+    pub fn new_with_headers(table_content: impl BufRead, headers: &[String]) -> CIndexResult<Self> {
+        let data = Reader::new()
+            .ignore_empty_row(true)
+            .consume_dquote(true)
+            .custom_header(headers)
             .read_from_stream(table_content)
             .map_err(|err| {
                 CIndexError::InvalidTableInput(format!(
@@ -64,14 +103,14 @@ impl Table {
             OrderType::Desc(col) | OrderType::Asec(col) => {
                 if self.header.contains(col) {
                     queried.sort_by(|&a, &b| {
-                        let a = a.get_cell_value(&col).unwrap();
-                        let b = b.get_cell_value(&col).unwrap();
+                        let a = a.get_cell_value(col).unwrap();
+                        let b = b.get_cell_value(col).unwrap();
                         if let OrderType::Desc(_) = &query.order_type {
                             // Descending
-                            b.partial_cmp(&a).unwrap()
+                            b.partial_cmp(a).unwrap()
                         } else {
                             // Aescending
-                            a.partial_cmp(&b).unwrap()
+                            a.partial_cmp(b).unwrap()
                         }
                     });
                 } else {
@@ -109,7 +148,7 @@ impl Table {
             if !operate_value(
                 &row.get_cell_value(column).unwrap().to_string(),
                 &pre.arguments,
-                &pre,
+                pre,
             ) {
                 return false;
             }
@@ -119,7 +158,7 @@ impl Table {
     }
 }
 
-fn operate_value(comparator: &str, values: &Vec<String>, pre: &Predicate) -> bool {
+fn operate_value(comparator: &str, values: &[String], pre: &Predicate) -> bool {
     let var = comparator;
     let arg = values[0].as_str();
     let operation = &pre.operation;
