@@ -134,7 +134,7 @@ impl Indexer {
                 if !all_column {
                     targets.push(ColumnVariant::Real(col));
                 }
-            } else if query.flags.contains(QueryFlagType::SUP) {
+            } else if query.flags.contains(QueryFlagType::Sup) {
                 supplment.push(col);
             } else {
                 return Err(CIndexError::InvalidQueryStatement(format!(
@@ -162,7 +162,7 @@ impl Indexer {
         }
 
         // Print headers
-        if query.flags.contains(QueryFlagType::PHD) {
+        if query.flags.contains(QueryFlagType::Phd) {
             if let Some(map) = query.column_map {
                 if map.len() != targets.len() {
                     return Err(CIndexError::InvalidQueryStatement(

@@ -243,8 +243,8 @@ pub struct QueryFlags {
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum QueryFlagType {
-    PHD, // Print header
-    SUP, // Supplement
+    Phd, // Print header
+    Sup, // Supplement
     TP,  // Tranpose
 }
 
@@ -271,8 +271,8 @@ impl QueryFlags {
 
     pub fn set(&mut self, flag: &str) -> CIndexResult<()> {
         match flag.to_lowercase().as_str() {
-            "phd" | "print-header" => self.flags.insert(QueryFlagType::PHD),
-            "sup" | "supplment" => self.flags.insert(QueryFlagType::SUP),
+            "phd" | "print-header" => self.flags.insert(QueryFlagType::Phd),
+            "sup" | "supplment" => self.flags.insert(QueryFlagType::Sup),
             "tp" | "tranpose" => self.flags.insert(QueryFlagType::TP),
             _ => {
                 return Err(CIndexError::InvalidQueryStatement(
