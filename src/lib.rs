@@ -128,6 +128,8 @@ mod query;
 mod table;
 #[cfg(test)]
 mod test;
+#[cfg(feature ="binary")]
+mod cli;
 
 pub use error::{CIndexError, CIndexResult};
 pub use indexer::{Indexer, OutOption};
