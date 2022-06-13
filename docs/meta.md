@@ -1,21 +1,20 @@
 ### TODO
 
+* [x] Reexport dcsv reader option
 * [x] Made constructor's error handable
-
-* [ ] Fix Dcsv port bugs
+* [x] Remove empty method for query because it is useless for most cases
+* [x] Ditch bigut flags : it's lightweight, but cindex can be more lighter
+* [x] Custom header would be good
+* [x] Fix Dcsv port bugs
+	* [x] FET : Removed double quotes termination
 	* [x] BUG : Currently select column is broken for headers
 	* [x] BUG : Hmap doesn't work
 	* [x] FET : Make * detected among select args
 	* [x] FET : Wildcard can be applied in between because why not?
 * [x] Support quotes in query so that user can utilize whitespace
 
-* [ ] To think about it... I think "operate" function was inherently failure.
-Since it always require the query syntax to expect column name first.
-	- 'SELECT * FROM table WHERE col-name = hello' works but,
-	- 'SELECT * FROM table WHERE hello = col-name' doesn't work
-Is this ok? Hmm... I think it might be ok. The reasons are
-	- People write the first way anyway.
-	- Cindex is not SQL, thus query syntax can differ, because why not.
+* [ ] Make OPERATE order consistent
+	- To work lv and rv's order doesn't matter
 
 * [ ] Join functionality
 * [ ] <OR> variant for predicate

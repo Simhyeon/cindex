@@ -12,11 +12,6 @@ Binary to be added soon.
 
 # Features
 
-**Read csv file as string table**
-
-No mmap, no bufstream no nothing. If 'read' is ok, then table content is ok
-through the whole indexing.
-
 **Index csv table with SQL-like query**
 
 Sometimes you want raw way to index table and get raw value from it. Just pipe
@@ -44,25 +39,26 @@ use cindex::{Indexer, CsvType, Predicate, Query, OutOption, Operator};
 
 let mut indexer = Indexer::new();
 
-// Add table without types
-// Default types for every columns are "Text"
+// Add table from file
 indexer
-    .add_table_fast(
+    .add_table(
         "table1",
-        File::open("test.csv").expect("Failed to open a file"),
+        BufReader::new(File::open("test.csv").expect("Failed to open a file")),
     )
     .expect("Failed to add table");
 
 // Add table from stdin
 let stdin = std::io::stdin();
 indexer
-    .add_table_fast("table2", stdin.lock())
+    .add_table("table2", stdin.lock())
     .expect("Failed to add table");
 
 // Indexing
 
-// Create query object and print output to terminal
-let query = Query::from_str("SELECT a,b,c FROM table1 WHERE a = 10");
+// Create query object and print queried output to terminal
+use std::str::FromStr;
+let query = Query::from_str("SELECT a,b,c FROM table1 WHERE a = 10")
+    .expect("Failed to create a query from str");
 indexer
     .index(query, OutOption::Term)
     .expect("Failed to index a table");
@@ -76,7 +72,8 @@ indexer
     .expect("Failed to index a table");
 
 // Use builder pattern to construct query and index a table
-let query = Query::empty("table1")
+let query = Query::build()
+	.table("table1")
     .columns(vec!["id", "address"])
     .predicate(Predicate::new("id", Operator::Equal).args(vec!["10"]))
     .predicate(
@@ -108,13 +105,8 @@ SELECT * FROM table1
 order*/
 SELECT * FROM table1 ORDER BY col1 DESC
 
-/* Same with previous commands but map header result */
-SELECT * FROM table1 ORDER BY col1 DESC HMAP new_h,new_h2,new_h3
-
-/* -> Previous query result header with underbar substituted with whitespaces
-new h,new h2,new h3
-<-- Content goes here -->
- */
+/* Same with previous commands but map header to different array */
+SELECT * FROM table1 ORDER BY col1 DESC HMAP 'new h','new h2','new h3'
 
 /* You can use OFFSET and LIMIT syntax to control how much lines to print*/
 /* Keep in mind that this doesn't early return from indexing, but it works as
@@ -130,8 +122,8 @@ SELECT col1,col2 FROM table1 WHERE col1 = 10 AND col2 LIKE ^start
 SELECT * FROM table_name FLAG PHD SUP
 
 /* In this case each flag does next operation
-  - PHD (PRINT-HEADER) : Print header in result output
-  - SUP (SUPPLEMENT)   : Enable selection of non-existent column with empty values
+  - PHD (PRINT-HEADER) : Print a header in result output
+  - SUP (SUPPLEMENT)   : Enable a selection of non-existent column with empty values
   - TP  (Transpose)    : Transpose(Invert) csv value as of linalg
  */
 ```
