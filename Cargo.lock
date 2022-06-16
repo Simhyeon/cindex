@@ -79,7 +79,8 @@ dependencies = [
 [[package]]
 name = "dcsv"
 version = "0.2.0"
-source = "git+https://github.com/simhyeon/dcsv?branch=dev#f789665b5c27c596757191f7815dacb59147856e"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "708018f722a65d03ccf4585053d33dfe23cd7da472bdf090975be0fb54e11930"
 dependencies = [
  "regex",
 ]
