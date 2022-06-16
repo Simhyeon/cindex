@@ -1,6 +1,5 @@
 ### TODO
 
-* [x] Multi-line query construction
 * [ ] Make OPERATE order consistent
 	- To work lv and rv's order doesn't matter
 
@@ -14,6 +13,10 @@
 	e.g. ) SELECT IN(2)
 
 ### DONE
+
+**0.5.1**
+
+* [x] Multi-line query construction
 
 Prior 0.5.0
 

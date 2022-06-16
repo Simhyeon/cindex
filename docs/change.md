@@ -1,3 +1,8 @@
+# 0.5.1 Hotfix
+
+- BUG : Query panicked on 
+- CHG : Improved error handling int query building.
+
 # 0.5.0
 
 - CHG : Changed method names

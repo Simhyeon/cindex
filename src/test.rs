@@ -53,13 +53,19 @@ mod tests {
 3,Hevay,jojo,CC 8790"
                 .as_bytes(),
         )?;
+        //indexer.index_raw(
+        //r#"SELECT 'first name'
+        //'last name'
+        //FROM
+        //t1
+        //FLAG
+        //PHD"#,
+        //OutOption::Term,
+        //)?;
+
         indexer.index_raw(
-            r#"SELECT 'first name'
-            'last name' 
-            FROM 
-            t1 
-            FLAG
-            PHD"#,
+            r#"SELECT FROM t1
+            "#,
             OutOption::Term,
         )?;
         //indexer.index_raw(
