@@ -79,7 +79,7 @@ dependencies = [
 [[package]]
 name = "dcsv"
 version = "0.2.0"
-source = "git+https://github.com/simhyeon/dcsv?branch=dev#d26e3ea5305690a10da0764d41e6450c2d98ceb4"
+source = "git+https://github.com/simhyeon/dcsv?branch=dev#f789665b5c27c596757191f7815dacb59147856e"
 dependencies = [
  "regex",
 ]
