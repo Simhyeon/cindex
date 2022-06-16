@@ -62,7 +62,21 @@ impl Parser {
         }
 
         let table_name = std::mem::take(&mut self.state.table_name);
+
+        if table_name.is_empty() {
+            return Err(CIndexError::InvalidQueryStatement(
+                "You cannot query without table name".to_owned(),
+            ));
+        }
+
         let columns = std::mem::take(&mut self.state.raw_column_names);
+
+        if columns.is_empty() {
+            return Err(CIndexError::InvalidQueryStatement(
+                "You cannot query without target columns".to_owned(),
+            ));
+        }
+
         let predicates = self.get_predicates()?;
         let joined = std::mem::replace(&mut self.state.joined, None);
         let order_type = match self.state.order_by.len() {
