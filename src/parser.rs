@@ -51,9 +51,13 @@ impl Parser {
 
         // SELECT columns FROM TABLE WHERE arguments
         for word in split {
+            let word = word.trim();
+            if word.is_empty() {
+                continue;
+            }
             // If no cursor change, then
-            if !self.set_cursor(&word) {
-                self.update_state(&word)?;
+            if !self.set_cursor(word) {
+                self.update_state(word)?;
             }
         }
 
