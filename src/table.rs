@@ -20,7 +20,7 @@ impl Table {
     pub fn build(table_content: impl BufRead, reader_option: ReaderOption) -> CIndexResult<Self> {
         let data = Reader::new()
             .with_option(reader_option)
-            .read_from_stream(table_content)
+            .data_from_stream(table_content)
             .map_err(|err| {
                 CIndexError::InvalidTableInput(format!(
                     "Failed to read table contents with error : {}",
@@ -39,7 +39,7 @@ impl Table {
             .consume_dquote(true)
             .ignore_empty_row(true)
             .has_header(true)
-            .read_from_stream(table_content)
+            .data_from_stream(table_content)
             .map_err(|err| {
                 CIndexError::InvalidTableInput(format!(
                     "Failed to read table contents with error : {}",
@@ -58,7 +58,7 @@ impl Table {
             .ignore_empty_row(true)
             .consume_dquote(true)
             .custom_header(headers)
-            .read_from_stream(table_content)
+            .data_from_stream(table_content)
             .map_err(|err| {
                 CIndexError::InvalidTableInput(format!(
                     "Failed to read table contents with error : {}",
