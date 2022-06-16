@@ -1,5 +1,6 @@
 ### TODO
 
+* [x] Multi-line query construction
 * [ ] Make OPERATE order consistent
 	- To work lv and rv's order doesn't matter
 

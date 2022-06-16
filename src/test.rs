@@ -45,10 +45,27 @@ mod tests {
             BufReader::new(File::open("/home/simon/misc/csv_samples/biostats.csv")?),
             reader_option,
         )?;
+        indexer.add_table(
+            "t1",
+            "id,first name,last name,address
+1,John,doe,AA 1234
+2,Janet,doner,BB 4566
+3,Hevay,jojo,CC 8790"
+                .as_bytes(),
+        )?;
         indexer.index_raw(
-            r#"SELECT * FROM t4 ORDER BY 'Height (in)' desc OFFSET 1 FLAG PHD WHERE 'Height (in)' = 66"#,
+            r#"SELECT 'first name'
+            'last name' 
+            FROM 
+            t1 
+            FLAG
+            PHD"#,
             OutOption::Term,
         )?;
+        //indexer.index_raw(
+        //r#"SELECT * FROM t4 ORDER BY 'Height (in)' desc OFFSET 1 FLAG PHD WHERE 'Height (in)' = 66"#,
+        //OutOption::Term,
+        //)?;
 
         Ok(())
     }
