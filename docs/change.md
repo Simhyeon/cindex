@@ -1,6 +1,6 @@
 # 0.5.1 Hotfix
 
-- BUG : Query panicked on 
+- BUG : Query panicked on multiline source
 - CHG : Improved error handling int query building.
 
 # 0.5.0
