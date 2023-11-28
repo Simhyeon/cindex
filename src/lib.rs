@@ -17,6 +17,8 @@
 //!
 //! ```no_run
 //! use std::fs::File;
+//! use std::io::BufReader;
+//! use std::str::FromStr;
 //! use cindex::{Indexer, Predicate, Query, OutOption, Operator};
 //!
 //! let mut indexer = Indexer::new();
@@ -24,16 +26,16 @@
 //! // Add table without types
 //! // Default types for every columns are "Text"
 //! indexer
-//!     .add_table_fast(
+//!     .add_table(
 //!         "table1",
-//!         File::open("test.csv").expect("Failed to open a file"),
+//!         BufReader::new(File::open("test.csv").expect("Failed to open a file")),
 //!     )
 //!     .expect("Failed to add table");
 //!
 //! // Add table from stdin
 //! let stdin = std::io::stdin();
 //! indexer
-//!     .add_table_fast("table3", stdin.lock())
+//!     .add_table("table3", stdin.lock())
 //!     .expect("Failed to add table");
 //!
 //! // Indexing
@@ -53,7 +55,8 @@
 //!     .expect("Failed to index a table");
 //!
 //! // Use builder pattern to construct query and index a table
-//! let query = Query::empty("table2")
+//! let query = Query::build()
+//!     .table("table2")
 //!     .columns(vec!["id", "address"])
 //!     .predicate(Predicate::new("id", Operator::Equal).args(vec!["10"]))
 //!     .predicate(
