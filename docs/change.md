@@ -1,7 +1,11 @@
+# 0.5.2-rc1
+
+Upgraded regex version
+
 # 0.5.1 Hotfix
 
 - BUG : Query panicked on multiline source
-- CHG : Improved error handling int query building.
+- CHG : Improved error handling inside query building.
 
 # 0.5.0
 
