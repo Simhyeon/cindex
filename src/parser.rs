@@ -18,7 +18,7 @@ pub struct ParseState {
     range: (usize, usize),
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub enum ParseCursor {
     None,
     From,
@@ -322,3 +322,28 @@ fn tokens_with_quote(source: &str) -> Vec<String> {
     }
     tokens
 }
+
+// // TODO
+// // This should be relocated to proper module
+// #[derive(Default)]
+// pub struct PredicateGroup {
+//     children: Vec<PredicateGroup>,
+// }
+//
+// pub struct PredicateParser {}
+//
+// impl PredicateParser {
+//     pub fn new() -> Self {
+//         Self {}
+//     }
+//
+//     pub fn from_str(&mut self, string: &str) -> PredicateGroup {
+//         let mut group = PredicateGroup::default();
+//         let (mut token_start, mut token_end) = (0, 0);
+//         for (idx, ch) in string.chars().enumerate() {
+//             token_end = idx;
+//             if ch == ' ' || ch == '\t' {}
+//         }
+//         group
+//     }
+// }
