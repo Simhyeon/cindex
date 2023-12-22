@@ -1,16 +1,24 @@
-### TODO
+### Consider
 
-* [ ] Make OPERATE order consistent
+* [-] Make OPERATE order consistent
 	- To work lv and rv's order doesn't matter
+    - Reconsider if this is necessary at all
 
-* [ ] Join functionality
+* [-] Join functionality
+    - Is this really that necessary?
+
+### TODO
+$todo_start()
+* [ ] Add editing feature
 * [ ] <OR> variant for predicate
-- Currently all predicate are AND variant
+  - Currently all predicate are AND variant
+  - This needs to create a new parser...
 * [ ] Evaluation process would be useful
 * [ ] Count, average, sum
 	* [ ] This is technically a sql function support
 * [ ] Index method to query with indexes
-	e.g. ) SELECT IN(2)
+	e.g. : SELECT IN(2)
+$todo_end()
 
 ### DONE
 
