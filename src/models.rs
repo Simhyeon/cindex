@@ -15,12 +15,10 @@ impl OrderType {
         match text.to_lowercase().as_str() {
             "asec" => Ok(Self::Asec(column.to_string())),
             "desc" => Ok(Self::Desc(column.to_string())),
-            _ => {
-                return Err(CIndexError::InvalidQueryStatement(format!(
-                    "Ordertype can only be ASEC OR DESC but given \"{}\"",
-                    text
-                )))
-            }
+            _ => Err(CIndexError::InvalidQueryStatement(format!(
+                "Ordertype can only be ASEC OR DESC but given \"{}\"",
+                text
+            ))),
         }
     }
 }
