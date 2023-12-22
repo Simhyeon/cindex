@@ -194,7 +194,7 @@ impl Predicate {
 }
 
 /// Operator to calculate operands
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Operator {
     Bigger,
     BiggerOrEqual,
