@@ -64,14 +64,10 @@ mod tests {
         //)?;
 
         indexer.index_raw(
-            r#"SELECT FROM t1
+            r#"SELECT * FROM t1
             "#,
             OutOption::Term,
         )?;
-        //indexer.index_raw(
-        //r#"SELECT * FROM t4 ORDER BY 'Height (in)' desc OFFSET 1 FLAG PHD WHERE 'Height (in)' = 66"#,
-        //OutOption::Term,
-        //)?;
 
         Ok(())
     }

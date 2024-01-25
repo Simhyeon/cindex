@@ -9,6 +9,7 @@
 
 ### TODO
 $todo_start()
+* [ ] Port to dedicated tokenizer
 * [ ] Add editing feature
 * [ ] <OR> variant for predicate
   - Currently all predicate are AND variant
