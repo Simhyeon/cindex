@@ -13,7 +13,7 @@ dependencies = [
 
 [[package]]
 name = "cindex"
-version = "0.5.2"
+version = "0.6.0-beta.1"
 dependencies = [
  "dcsv",
  "rayon",
